@@ -1,3 +1,4 @@
+require('dotenv').config();
 const { sendDueReminders } = require('../services/reminderService');
 const { logger, logError } = require('../services/loggerService');
 

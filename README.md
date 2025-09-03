@@ -24,6 +24,8 @@ A personal secretary assistant LINE Bot that helps you schedule, manage, and rec
 ```
 line-bot/
 │── app.js                 # Express app entry point
+│── api/
+│    └── send-reminders.js # Vercel serverless function
 │── routes/
 │    └── line.js           # LINE webhook (/callback)
 │    └── reminders.js      # Reminder API (/send-reminders)
@@ -35,6 +37,8 @@ line-bot/
 │    └── commandParser.js  # Command parsing utilities
 │── database/
 │    └── schema.sql        # Supabase database schema
+│── test-reminders.js      # Local reminder service test
+│── test-server.js         # Local endpoint test server
 │── .env                   # Environment variables
 │── vercel.json            # Vercel configuration
 │── package.json           # Dependencies & scripts
@@ -49,20 +53,49 @@ line-bot/
 - Supabase account
 - Vercel account (for deployment)
 
-### 2. Setup LINE Bot
+### 2. Vercel Serverless Function Setup
+
+The bot uses Vercel serverless functions for deployment. The main components are:
+
+- **`app.js`**: Main Express app for LINE webhook (`/callback`)
+- **`api/send-reminders.js`**: Serverless function for reminder processing
+- **`vercel.json`**: Routing configuration
+
+#### Testing Locally
+
+1. **Test the reminder service directly:**
+
+   ```bash
+   node test-reminders.js
+   ```
+
+2. **Test the endpoint locally:**
+
+   ```bash
+   node test-server.js
+   curl http://localhost:3001/send-reminders
+   ```
+
+3. **Test the main app:**
+   ```bash
+   npm start
+   curl http://localhost:3000/health
+   ```
+
+### 3. Setup LINE Bot
 
 1. Go to [LINE Developers Console](https://developers.line.biz/)
 2. Create a new provider and channel (Messaging API)
 3. Get your **Channel Secret** and **Channel Access Token**
 4. Note your LINE user ID (you can get this by sending a message to your bot)
 
-### 3. Setup Supabase
+### 4. Setup Supabase
 
 1. Create a new project at [Supabase](https://supabase.com/)
 2. Go to SQL Editor and run the schema from `database/schema.sql`
 3. Get your **Project URL** and **Service Role Key** from Settings > API
 
-### 4. Local Development
+### 5. Local Development
 
 1. **Clone and install dependencies:**
 

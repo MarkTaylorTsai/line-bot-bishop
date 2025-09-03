@@ -4,6 +4,10 @@
     {
       "src": "app.js",
       "use": "@vercel/node"
+    },
+    {
+      "src": "api/**/*.js",
+      "use": "@vercel/node"
     }
   ],
   "routes": [
@@ -13,7 +17,7 @@
     },
     {
       "src": "/send-reminders",
-      "dest": "/app.js"
+      "dest": "/api/send-reminders.js"
     },
     {
       "src": "/(.*)",

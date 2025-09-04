@@ -3,6 +3,7 @@ const express = require('express');
 const line = require('@line/bot-sdk');
 const { createClient } = require('@supabase/supabase-js');
 const moment = require('moment');
+const cron = require('node-cron');
 
 
 const app = express();
@@ -531,7 +532,7 @@ async function sendHelpMessage(replyToken) {
 - 日期格式：YYYY-MM-DD
 - 時間格式：HH:mm
 - ID 可在面談清單中查看
-- 系統會自動發送24小時和3小時前的提醒通知`;
+- 系統會自動發送24小時和3小時前的提醒通知給主教`;
 
   await client.replyMessage(replyToken, {
     type: 'text',
@@ -544,18 +545,17 @@ class ReminderManager {
   // Send reminder message
   static async sendReminderMessage(interview, reminderType) {
     try {
-      // Use bishop's LINE user ID for reminders
-      const targetUserId = BISHOP_LINE_USER_ID || interview.user_id;
-      
-      if (!targetUserId) {
-        console.error('No bishop user ID configured for reminders');
-        return { success: false, error: 'No bishop user ID configured' };
-      }
-
       const date = moment(interview.interview_date).format('YYYY-MM-DD');
       const time = interview.interview_time ? interview.interview_time.substring(0, 5) : interview.interview_time;
       const hoursText = reminderType === '24h' ? '24小時' : '3小時';
       
+      // Send reminder to bishop only
+      const bishopUserId = BISHOP_LINE_USER_ID || interview.user_id;
+      if (!bishopUserId) {
+        console.error('No bishop user ID configured for reminders');
+        return { success: false, error: 'No bishop user ID configured' };
+      }
+
       const message = `🔔 面談提醒通知
 
 您有一個面談即將在${hoursText}後舉行：
@@ -567,13 +567,13 @@ class ReminderManager {
 
 請做好準備！`;
 
-      await client.pushMessage(targetUserId, {
+      await client.pushMessage(bishopUserId, {
         type: 'text',
         text: message
       });
 
       console.log(`📨 Sent ${reminderType} reminder to bishop for interview ${interview.id}`);
-      return { success: true };
+      return { success: true, totalSent: 1 };
     } catch (error) {
       console.error('Error sending reminder message:', error);
       return { success: false, error: error.message };
@@ -677,7 +677,59 @@ app.get('/', (req, res) => {
   res.json({ status: 'LINE Interview Bot is running!' });
 });
 
-// Manual reminder trigger endpoint moved to /api/trigger-reminders.js for Vercel serverless function
+// Manual reminder trigger endpoint for testing
+app.post('/api/trigger-reminders', async (req, res) => {
+  try {
+    console.log('🕐 Manual reminder trigger requested...');
+    const result = await ReminderManager.processReminders();
+    
+    if (result.success) {
+      res.json({
+        success: true,
+        message: `Reminder check completed successfully. Sent ${result.totalSent} reminders.`,
+        totalSent: result.totalSent,
+        errors: result.errors
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        error: result.error
+      });
+    }
+  } catch (error) {
+    console.error('Error in manual reminder trigger:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// Cron job scheduler for reminders
+// Run every hour at minute 0 to check for interviews needing reminders
+const reminderCronJob = cron.schedule('0 * * * *', async () => {
+  console.log('🕐 Running scheduled reminder check...');
+  try {
+    const result = await ReminderManager.processReminders();
+    if (result.success) {
+      console.log(`✅ Reminder check completed successfully. Sent ${result.totalSent} reminders.`);
+      if (result.errors && result.errors.length > 0) {
+        console.warn('⚠️ Some reminders had errors:', result.errors);
+      }
+    } else {
+      console.error('❌ Reminder check failed:', result.error);
+    }
+  } catch (error) {
+    console.error('❌ Error in scheduled reminder check:', error);
+  }
+}, {
+  scheduled: false, // Don't start automatically
+  timezone: "Asia/Taipei" // Set timezone to Taiwan
+});
+
+// Start the cron job
+reminderCronJob.start();
+console.log('✅ Cron job started - reminders will be checked every hour');
 
 // Validate bishop configuration
 if (!BISHOP_LINE_USER_ID) {

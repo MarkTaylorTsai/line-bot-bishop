@@ -47,11 +47,28 @@ const fileFormat = winston.format.combine(
 
 // Check if we're in a serverless environment
 const isServerless = () => {
-  return process.env.VERCEL === '1' || 
-         process.env.NODE_ENV === 'production' || 
-         process.env.AWS_LAMBDA_FUNCTION_NAME ||
-         process.env.FUNCTION_TARGET ||
-         process.env.K_SERVICE;
+  // Check for Vercel specifically first
+  if (process.env.VERCEL === '1') {
+    return true;
+  }
+  
+  // Check for other serverless environments
+  if (process.env.AWS_LAMBDA_FUNCTION_NAME || 
+      process.env.FUNCTION_TARGET || 
+      process.env.K_SERVICE ||
+      process.env.VERCEL_ENV) {
+    return true;
+  }
+  
+  // Check if we're in production (which could be serverless)
+  if (process.env.NODE_ENV === 'production') {
+    // Additional check to see if we're likely on a serverless platform
+    if (process.env.VERCEL_URL || process.env.VERCEL_ENV) {
+      return true;
+    }
+  }
+  
+  return false;
 };
 
 // Define transports based on environment
@@ -66,6 +83,14 @@ const getTransports = () => {
   // Only add file transports in non-serverless environments
   if (!isServerless()) {
     try {
+      // Ensure logs directory exists before creating file transports
+      const fs = require('fs');
+      const logsDir = path.join(process.cwd(), 'logs');
+      
+      if (!fs.existsSync(logsDir)) {
+        fs.mkdirSync(logsDir, { recursive: true });
+      }
+      
       // Error log file
       transports.push(new winston.transports.File({
         filename: path.join('logs', 'error.log'),
@@ -82,12 +107,20 @@ const getTransports = () => {
         maxsize: 5242880, // 5MB
         maxFiles: 5
       }));
+      
+      console.log('File logging enabled - logs directory created');
     } catch (error) {
       console.warn('File logging not available in this environment:', error.message);
       console.warn('Falling back to console logging only');
     }
   } else {
     console.log('Serverless environment detected - using console logging only');
+    console.log('Environment variables:', {
+      VERCEL: process.env.VERCEL,
+      NODE_ENV: process.env.NODE_ENV,
+      VERCEL_ENV: process.env.VERCEL_ENV,
+      VERCEL_URL: process.env.VERCEL_URL
+    });
   }
 
   return transports;

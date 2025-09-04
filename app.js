@@ -3,7 +3,7 @@ const express = require('express');
 const line = require('@line/bot-sdk');
 const { createClient } = require('@supabase/supabase-js');
 const moment = require('moment');
-const cron = require('node-cron');
+
 
 const app = express();
 
@@ -207,15 +207,19 @@ const fieldMap = {
 class MessageParser {
   // Parse "加入" command
   static parseAddCommand(text) {
-    const regex = /加入\s+([^\s]+)\s+(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2})\s+(.+)/;
+    // Allow both : and ： (full-width colon)
+    const regex = /加入\s+([^\s]+)\s+(\d{4}-\d{2}-\d{2})\s+(\d{2}[:：]\d{2})\s+(.+)/;
     const match = text.match(regex);
     
     if (!match) return null;
     
+    // Normalize full-width colon to standard colon
+    const time = match[3].replace('：', ':');
+    
     return {
       intervieweeName: match[1],
       date: match[2],
-      time: match[3] + ':00', // Add seconds for proper TIME format
+      time: time + ':00', // Add seconds for proper TIME format
       reason: match[4]
     };
   }
@@ -390,9 +394,11 @@ async function handleUpdateCommand(text, userId, replyToken) {
 
   // Handle time formatting for database storage
   if (dbField === 'interview_time') {
+    // Replace full-width colon with standard colon
+    valueToStore = parsed.value.replace('：', ':');
     // Add seconds if not provided
-    if (parsed.value.match(/^\d{2}:\d{2}$/)) {
-      valueToStore = parsed.value + ':00';
+    if (valueToStore.match(/^\d{2}:\d{2}$/)) {
+      valueToStore += ':00';
     }
   }
 
@@ -407,7 +413,7 @@ async function handleUpdateCommand(text, userId, replyToken) {
     return;
   }
 
-  if (dbField === 'interview_time' && !moment(parsed.value, 'HH:mm', true).isValid()) {
+  if (dbField === 'interview_time' && !moment(valueToStore, 'HH:mm', true).isValid()) {
     await client.replyMessage(replyToken, {
       type: 'text',
       text: '時間格式錯誤！請使用 HH:mm 格式。'
@@ -500,18 +506,18 @@ async function handleReminderStatusCommand(userId, replyToken) {
 }
 
 async function sendHelpMessage(replyToken) {
-  const helpText = `🤖 面談管理機器人使用說明：
+  const helpText = `主教團助理使用說明：
 
 📝 加入面談：
 加入 {人名} {日期} {時間} {理由}
-例如：加入 張三 2024-01-15 14:30 技術面試
+例如：加入 約翰 2024-01-15 14:30 聖殿推薦書面談
 
 📋 查看清單：
 面談清單
 
 ✏️ 更新面談：
 更新 {ID} {欄位} {新值}
-例如：更新 1 姓名 李四
+例如：更新 1 姓名 彼得
 可用欄位：姓名、日期、時間、理由
 
 🗑️ 刪除面談：
@@ -583,34 +589,49 @@ class ReminderManager {
       
       if (!result.success) {
         console.error('Failed to get interviews needing reminders:', result.error);
-        return;
+        return { success: false, error: result.error };
       }
 
       const { interviews24h, interviews3h } = result.data;
       let totalSent = 0;
+      let errors = [];
 
       console.log(`📋 Found ${interviews24h.length} interviews needing 24h reminders`);
       console.log(`📋 Found ${interviews3h.length} interviews needing 3h reminders`);
 
       // Process 24-hour reminders
       for (const interview of interviews24h) {
-        const reminderResult = await this.sendReminderMessage(interview, '24h');
-        if (reminderResult.success) {
-          await InterviewManager.markReminderSent(interview.id, '24h');
-          totalSent++;
-        } else {
-          console.error(`❌ Failed to send 24h reminder for interview ${interview.id}:`, reminderResult.error);
+        try {
+          const reminderResult = await this.sendReminderMessage(interview, '24h');
+          if (reminderResult.success) {
+            await InterviewManager.markReminderSent(interview.id, '24h');
+            totalSent++;
+            console.log(`✅ Sent 24h reminder for interview ${interview.id}`);
+          } else {
+            console.error(`❌ Failed to send 24h reminder for interview ${interview.id}:`, reminderResult.error);
+            errors.push(`24h reminder for interview ${interview.id}: ${reminderResult.error}`);
+          }
+        } catch (error) {
+          console.error(`❌ Error processing 24h reminder for interview ${interview.id}:`, error);
+          errors.push(`24h reminder for interview ${interview.id}: ${error.message}`);
         }
       }
 
       // Process 3-hour reminders
       for (const interview of interviews3h) {
-        const reminderResult = await this.sendReminderMessage(interview, '3h');
-        if (reminderResult.success) {
-          await InterviewManager.markReminderSent(interview.id, '3h');
-          totalSent++;
-        } else {
-          console.error(`❌ Failed to send 3h reminder for interview ${interview.id}:`, reminderResult.error);
+        try {
+          const reminderResult = await this.sendReminderMessage(interview, '3h');
+          if (reminderResult.success) {
+            await InterviewManager.markReminderSent(interview.id, '3h');
+            totalSent++;
+            console.log(`✅ Sent 3h reminder for interview ${interview.id}`);
+          } else {
+            console.error(`❌ Failed to send 3h reminder for interview ${interview.id}:`, reminderResult.error);
+            errors.push(`3h reminder for interview ${interview.id}: ${reminderResult.error}`);
+          }
+        } catch (error) {
+          console.error(`❌ Error processing 3h reminder for interview ${interview.id}:`, error);
+          errors.push(`3h reminder for interview ${interview.id}: ${error.message}`);
         }
       }
 
@@ -619,8 +640,15 @@ class ReminderManager {
       } else {
         console.log('📭 No reminders to send');
       }
+
+      return {
+        success: true,
+        totalSent,
+        errors: errors.length > 0 ? errors : undefined
+      };
     } catch (error) {
       console.error('Error processing reminders:', error);
+      return { success: false, error: error.message };
     }
   }
 }
@@ -649,25 +677,41 @@ app.get('/', (req, res) => {
   res.json({ status: 'LINE Interview Bot is running!' });
 });
 
-// Manual reminder trigger endpoint (for testing)
+// Manual reminder trigger endpoint (for external cron service)
 app.post('/trigger-reminders', async (req, res) => {
   try {
-    await ReminderManager.processReminders();
-    res.json({ success: true, message: 'Reminders processed successfully' });
+    // Verify API key if provided (optional security)
+    const apiKey = req.headers['x-api-key'] || req.query.apiKey;
+    const expectedApiKey = process.env.CRON_API_KEY;
+    
+    if (expectedApiKey && apiKey !== expectedApiKey) {
+      console.warn('⚠️ Invalid API key provided for reminder trigger');
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    console.log('🕐 Processing reminders via serverless endpoint...');
+    const result = await ReminderManager.processReminders();
+    
+    if (result.success) {
+      res.json({ 
+        success: true, 
+        message: 'Reminders processed successfully',
+        totalSent: result.totalSent,
+        errors: result.errors,
+        timestamp: new Date().toISOString()
+      });
+    } else {
+      res.status(500).json({ 
+        success: false, 
+        error: result.error,
+        timestamp: new Date().toISOString()
+      });
+    }
   } catch (error) {
     console.error('Error triggering reminders:', error);
     res.status(500).json({ error: 'Failed to process reminders' });
   }
 });
-
-// Setup cron job for reminders
-// Run every 10 minutes to check for reminders
-cron.schedule('*/10 * * * *', async () => {
-  console.log('⏰ Running scheduled reminder check...');
-  await ReminderManager.processReminders();
-});
-
-console.log('🕐 Reminder cron job scheduled to run every 10 minutes');
 
 // Validate bishop configuration
 if (!BISHOP_LINE_USER_ID) {

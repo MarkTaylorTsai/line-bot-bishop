@@ -46,15 +46,18 @@ Create a `.env` file in the root directory with the following variables:
 
 ```env
 # LINE Bot Configuration
-LINE_CHANNEL_ACCESS_TOKEN=your_line_channel_access_token_here
-LINE_CHANNEL_SECRET=your_line_channel_secret_here
+CHANNEL_ACCESS_TOKEN=your_line_channel_access_token_here
+CHANNEL_SECRET=your_line_channel_secret_here
 
 # Supabase Configuration
 SUPABASE_URL=your_supabase_project_url_here
-SERVICE_ROLE_KEY=your_supabase_service_role_key_here
+SUPABASE_KEY=your_supabase_service_role_key_here
 
 # Bishop Configuration
 BISHOP_LINE_USER_ID=your_bishop_line_user_id_here
+
+# Cron Service Configuration (Optional)
+CRON_API_KEY=your_cron_service_api_key_here
 
 # Server Configuration
 PORT=3000
@@ -79,6 +82,59 @@ npm start
 2. Deploy: `vercel --prod`
 3. Set environment variables in Vercel dashboard
 4. Update your LINE webhook URL to point to your Vercel deployment
+
+### 7. Setting Up External Cron Service
+
+Since Vercel is serverless, you need to set up an external cron service to trigger reminders every 10 minutes.
+
+#### Option 1: cron-job.org (Free)
+
+1. Go to [cron-job.org](https://cron-job.org/)
+2. Create an account and add a new cron job
+3. Set the URL to: `https://your-vercel-domain.vercel.app/trigger-reminders`
+4. Set the schedule to every 10 minutes: `*/10 * * * *`
+5. (Optional) Add API key in headers: `x-api-key: your_cron_api_key`
+
+#### Option 2: GitHub Actions (Free)
+
+Create `.github/workflows/cron.yml`:
+
+```yaml
+name: Trigger Reminders
+
+on:
+  schedule:
+    - cron: "*/10 * * * *" # Every 10 minutes
+
+jobs:
+  trigger-reminders:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger reminder processing
+        run: |
+          curl -X POST \
+            -H "Content-Type: application/json" \
+            -H "x-api-key: ${{ secrets.CRON_API_KEY }}" \
+            https://your-vercel-domain.vercel.app/trigger-reminders
+```
+
+#### Option 3: Other Services
+
+- **UptimeRobot**: Free tier includes 5-minute monitoring
+- **EasyCron**: Paid service with reliable scheduling
+- **AWS EventBridge**: If you have AWS infrastructure
+
+#### Security (Optional)
+
+To protect your endpoint, set the `CRON_API_KEY` environment variable and include it in your cron service requests:
+
+```bash
+# In headers
+x-api-key: your_api_key_here
+
+# Or in query parameters
+?apiKey=your_api_key_here
+```
 
 ## Usage
 
@@ -166,8 +222,8 @@ CREATE TABLE interviews (
 ## API Endpoints
 
 - `GET /` - Health check
-- `POST /webhook` - LINE webhook endpoint
-- `POST /trigger-reminders` - Manually trigger reminder processing (for testing)
+- `POST /callback` - LINE webhook endpoint
+- `POST /trigger-reminders` - Trigger reminder processing (for external cron service)
 
 ## Reminder System
 
@@ -181,13 +237,14 @@ The bot automatically sends reminder notifications:
 
 ### Reminder Features
 
-- **Automatic Processing**: Cron job runs every 10 minutes to check for due reminders
+- **Serverless Processing**: External cron service calls `/trigger-reminders` endpoint every 10 minutes
 - **Precise Timing**: Uses exact datetime calculations (23.5-24.5 hours for 24h, 2.5-3.5 hours for 3h)
 - **Duplicate Prevention**: Database tracks which reminders have been sent
 - **Edge Case Handling**: Automatically skips reminders for interviews added too close to start time
 - **Bishop Targeting**: All reminders sent to configured bishop LINE user ID
 - **Error Handling**: Failed reminders are logged but don't stop the system
-- **Manual Trigger**: `/trigger-reminders` endpoint for testing
+- **Idempotent**: Safe to call multiple times without duplicate reminders
+- **API Key Protection**: Optional API key verification for security
 
 ### Edge Case Handling
 

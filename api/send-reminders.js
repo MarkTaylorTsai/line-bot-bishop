@@ -21,16 +21,16 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    logger('Starting reminder sending process...');
+    logger.info('Starting reminder sending process...');
     const result = await sendDueReminders();
-    logger(`Reminder sending completed. Sent: ${result.remindersSent}`);
+    logger.info(`Reminder sending completed. Sent: ${result.remindersSent}`);
     res.status(200).json({ 
       success: true,
       remindersSent: result.remindersSent,
       timestamp: new Date().toISOString()
     });
   } catch (err) {
-    logError('Error in send-reminders endpoint:', err);
+    logError(err);
     res.status(500).json({ 
       error: 'Failed to send reminders',
       message: err.message,

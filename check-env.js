@@ -16,7 +16,8 @@ const optionalVars = [
   'NODE_ENV',
   'PORT',
   'ALLOWED_ORIGINS',
-  'API_KEY'
+  'API_KEY',
+  'VERCEL'
 ];
 
 console.log('📋 Required Variables:');
@@ -49,6 +50,7 @@ optionalVars.forEach(varName => {
 console.log('\n🔧 Environment Configuration:');
 console.log(`NODE_ENV: ${process.env.NODE_ENV || 'development'}`);
 console.log(`PORT: ${process.env.PORT || '3000'}`);
+console.log(`VERCEL: ${process.env.VERCEL || 'false'}`);
 
 // Test service imports
 console.log('\n🧪 Testing Service Imports:');
@@ -87,6 +89,28 @@ try {
   console.log('❌ LINE client: FAILED -', error.message);
 }
 
+// Test crypto module (important for LINE signature verification)
+try {
+  const crypto = require('crypto');
+  const testHash = crypto.createHmac('SHA256', 'test').update('test').digest('base64');
+  console.log('✅ Crypto module: OK');
+} catch (error) {
+  console.log('❌ Crypto module: FAILED -', error.message);
+}
+
+// Test file system access (important for logging)
+try {
+  const fs = require('fs');
+  const path = require('path');
+  const testPath = path.join(process.cwd(), 'test-write-access');
+  fs.writeFileSync(testPath, 'test');
+  fs.unlinkSync(testPath);
+  console.log('✅ File system access: OK');
+} catch (error) {
+  console.log('⚠️  File system access: LIMITED -', error.message);
+  console.log('   This is expected in serverless environments like Vercel');
+}
+
 // Summary
 console.log('\n📊 Summary:');
 if (allRequiredPresent) {
@@ -101,3 +125,5 @@ console.log('\n💡 Tips:');
 console.log('- Make sure your .env file is in the root directory');
 console.log('- For Vercel deployment, set environment variables in Vercel dashboard');
 console.log('- Never commit .env files to version control');
+console.log('- In serverless environments, file system access is limited');
+console.log('- Use console logging instead of file logging in production');

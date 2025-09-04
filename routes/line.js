@@ -1,5 +1,6 @@
 const express = require('express');
 const line = require('@line/bot-sdk');
+const crypto = require('crypto');
 const { createReminder, getReminders, deleteReminder, updateReminder } = require('../services/supabaseService');
 const { sendMessage } = require('../services/lineService');
 const { parseReminderCommand } = require('../utils/commandParser');
@@ -31,7 +32,7 @@ const verifySignature = (req, res, next) => {
 
   try {
     const body = JSON.stringify(req.body);
-    const hash = line.crypto.createHmac('SHA256', config.channelSecret)
+    const hash = crypto.createHmac('SHA256', config.channelSecret)
       .update(body, 'utf8')
       .digest('base64');
 

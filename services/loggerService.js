@@ -45,37 +45,48 @@ const fileFormat = winston.format.combine(
   winston.format.json()
 );
 
-// Define transports
-const transports = [
-  // Console transport
-  new winston.transports.Console({
-    format
-  }),
+// Define transports based on environment
+const getTransports = () => {
+  const transports = [
+    // Console transport (always available)
+    new winston.transports.Console({
+      format
+    })
+  ];
 
-  // Error log file
-  new winston.transports.File({
-    filename: path.join('logs', 'error.log'),
-    level: 'error',
-    format: fileFormat,
-    maxsize: 5242880, // 5MB
-    maxFiles: 5
-  }),
+  // Only add file transports in non-serverless environments
+  if (process.env.NODE_ENV !== 'production' || process.env.VERCEL !== '1') {
+    try {
+      // Error log file
+      transports.push(new winston.transports.File({
+        filename: path.join('logs', 'error.log'),
+        level: 'error',
+        format: fileFormat,
+        maxsize: 5242880, // 5MB
+        maxFiles: 5
+      }));
 
-  // Combined log file
-  new winston.transports.File({
-    filename: path.join('logs', 'combined.log'),
-    format: fileFormat,
-    maxsize: 5242880, // 5MB
-    maxFiles: 5
-  })
-];
+      // Combined log file
+      transports.push(new winston.transports.File({
+        filename: path.join('logs', 'combined.log'),
+        format: fileFormat,
+        maxsize: 5242880, // 5MB
+        maxFiles: 5
+      }));
+    } catch (error) {
+      console.warn('File logging not available in this environment:', error.message);
+    }
+  }
+
+  return transports;
+};
 
 // Create the logger
 const logger = winston.createLogger({
   level: level(),
   levels,
   format: fileFormat,
-  transports,
+  transports: getTransports(),
   exitOnError: false
 });
 

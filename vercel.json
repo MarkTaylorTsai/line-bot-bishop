@@ -20,11 +20,28 @@
       "dest": "/api/send-reminders.js"
     },
     {
+      "src": "/health",
+      "dest": "/app.js"
+    },
+    {
+      "src": "/metrics",
+      "dest": "/app.js"
+    },
+    {
       "src": "/(.*)",
       "dest": "/app.js"
     }
   ],
   "env": {
-    "NODE_ENV": "production"
+    "NODE_ENV": "production",
+    "VERCEL": "1"
+  },
+  "functions": {
+    "app.js": {
+      "maxDuration": 30
+    },
+    "api/send-reminders.js": {
+      "maxDuration": 30
+    }
   }
 }

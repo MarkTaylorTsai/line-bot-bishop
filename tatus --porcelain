@@ -1,0 +1,4 @@
+[33m2f998ea[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m)[m Fix test-reminders.js logger function and update Supabase test script
+[33m003dbbb[m Fix environment variables: Add dotenv config to serverless function and create environment check script
+[33md8027cc[m Fix 404 error: Add Vercel serverless function for send-reminders endpoint
+[33mfc4903b[m Initial commit: LINE Bot with reminder management system

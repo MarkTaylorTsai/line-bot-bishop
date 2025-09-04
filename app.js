@@ -679,7 +679,7 @@ app.get('/', (req, res) => {
 
 // Manual reminder trigger endpoint (for external cron service)
 // Accepts both GET and POST requests for flexibility
-app.all('/trigger-reminders', async (req, res) => {
+app.all('/send-reminders', async (req, res) => {
   try {
     // Verify API key if provided (optional security)
     const apiKey = req.headers['x-api-key'] || req.query.apiKey;
@@ -732,4 +732,5 @@ app.listen(PORT, () => {
   console.log(`LINE Interview Bot server is running on port ${PORT}`);
 });
 
-module.exports = app;
+const serverless = require('serverless-http');
+module.exports = serverless(app);

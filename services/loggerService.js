@@ -45,6 +45,15 @@ const fileFormat = winston.format.combine(
   winston.format.json()
 );
 
+// Check if we're in a serverless environment
+const isServerless = () => {
+  return process.env.VERCEL === '1' || 
+         process.env.NODE_ENV === 'production' || 
+         process.env.AWS_LAMBDA_FUNCTION_NAME ||
+         process.env.FUNCTION_TARGET ||
+         process.env.K_SERVICE;
+};
+
 // Define transports based on environment
 const getTransports = () => {
   const transports = [
@@ -55,7 +64,7 @@ const getTransports = () => {
   ];
 
   // Only add file transports in non-serverless environments
-  if (process.env.NODE_ENV !== 'production' || process.env.VERCEL !== '1') {
+  if (!isServerless()) {
     try {
       // Error log file
       transports.push(new winston.transports.File({
@@ -75,7 +84,10 @@ const getTransports = () => {
       }));
     } catch (error) {
       console.warn('File logging not available in this environment:', error.message);
+      console.warn('Falling back to console logging only');
     }
+  } else {
+    console.log('Serverless environment detected - using console logging only');
   }
 
   return transports;

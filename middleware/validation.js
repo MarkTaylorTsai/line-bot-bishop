@@ -1,6 +1,6 @@
 const Joi = require('joi');
 const { validationResult } = require('express-validator');
-const { logger } = require('../services/loggerService');
+// const { logger } = require('../services/loggerService');
 
 // Joi schemas for validation
 const reminderSchema = Joi.object({
@@ -62,12 +62,12 @@ const validateRequest = (schema) => {
         message: detail.message
       }));
 
-      logger.warn({
-        message: 'Validation failed',
-        errors,
-        url: req.url,
-        method: req.method
-      });
+      // logger.warn({
+      //   message: 'Validation failed',
+      //   errors,
+      //   url: req.url,
+      //   method: req.method
+      // });
 
       return res.status(400).json({
         error: 'Validation failed',
@@ -90,12 +90,12 @@ const validateExpressValidator = (req, res, next) => {
       value: error.value
     }));
 
-    logger.warn({
-      message: 'Validation failed',
-      errors: errorDetails,
-      url: req.url,
-      method: req.method
-    });
+    // logger.warn({
+    //   message: 'Validation failed',
+    //   errors: errorDetails,
+    //   url: req.url,
+    //   method: req.method
+    // });
 
     return res.status(400).json({
       error: 'Validation failed',
@@ -134,12 +134,12 @@ const validateRateLimit = (req, res, next) => {
   const { rateLimit } = req;
 
   if (rateLimit && rateLimit.remaining === 0) {
-    logger.warn({
-      message: 'Rate limit exceeded',
-      ip: req.ip,
-      url: req.url,
-      method: req.method
-    });
+    // logger.warn({
+    //   message: 'Rate limit exceeded',
+    //   ip: req.ip,
+    //   url: req.url,
+    //   method: req.method
+    // });
 
     return res.status(429).json({
       error: 'Too many requests',
@@ -169,11 +169,11 @@ const validateCommand = (req, res, next) => {
   const isValidCommand = validCommands.some(cmd => message.startsWith(cmd));
 
   if (!isValidCommand) {
-    logger.warn({
-      message: 'Invalid command received',
-      command: message,
-      userId: req.body.events?.[0]?.source?.userId
-    });
+    // logger.warn({
+    //   message: 'Invalid command received',
+    //   command: message,
+    //   userId: req.body.events?.[0]?.source?.userId
+    // });
 
     return res.status(400).json({
       error: 'Invalid command'

@@ -1,5 +1,5 @@
 const rateLimit = require('express-rate-limit');
-const { logger } = require('../services/loggerService');
+// const { logger } = require('../services/loggerService');
 
 // General rate limiter for all routes
 const generalLimiter = rateLimit({
@@ -12,12 +12,12 @@ const generalLimiter = rateLimit({
   standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
   legacyHeaders: false, // Disable the `X-RateLimit-*` headers
   handler: (req, res) => {
-    logger.warn({
-      message: 'Rate limit exceeded - General',
-      ip: req.ip,
-      url: req.url,
-      method: req.method
-    });
+    // logger.warn({
+    //   message: 'Rate limit exceeded - General',
+    //   ip: req.ip,
+    //   url: req.url,
+    //   method: req.method
+    // });
 
     res.status(429).json({
       error: 'Too many requests from this IP, please try again later.',
@@ -37,12 +37,12 @@ const lineWebhookLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   handler: (req, res) => {
-    logger.warn({
-      message: 'Rate limit exceeded - LINE Webhook',
-      ip: req.ip,
-      url: req.url,
-      method: req.method
-    });
+    // logger.warn({
+    //   message: 'Rate limit exceeded - LINE Webhook',
+    //   ip: req.ip,
+    //   url: req.url,
+    //   method: req.method
+    // });
 
     res.status(429).json({
       error: 'Too many LINE webhook requests, please try again later.',
@@ -62,12 +62,12 @@ const reminderLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   handler: (req, res) => {
-    logger.warn({
-      message: 'Rate limit exceeded - Reminder Endpoint',
-      ip: req.ip,
-      url: req.url,
-      method: req.method
-    });
+    // logger.warn({
+    //   message: 'Rate limit exceeded - Reminder Endpoint',
+    //   ip: req.ip,
+    //   url: req.url,
+    //   method: req.method
+    // });
 
     res.status(429).json({
       error: 'Too many reminder requests, please try again later.',
@@ -87,12 +87,12 @@ const healthCheckLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   handler: (req, res) => {
-    logger.warn({
-      message: 'Rate limit exceeded - Health Check',
-      ip: req.ip,
-      url: req.url,
-      method: req.method
-    });
+    // logger.warn({
+    //   message: 'Rate limit exceeded - Health Check',
+    //   ip: req.ip,
+    //   url: req.url,
+    //   method: req.method
+    // });
 
     res.status(429).json({
       error: 'Too many health check requests, please try again later.',
@@ -119,13 +119,13 @@ const userSpecificLimiter = rateLimit({
   handler: (req, res) => {
     const userId = req.body?.events?.[0]?.source?.userId || req.ip;
 
-    logger.warn({
-      message: 'Rate limit exceeded - User Specific',
-      userId,
-      ip: req.ip,
-      url: req.url,
-      method: req.method
-    });
+    // logger.warn({
+    //   message: 'Rate limit exceeded - User Specific',
+    //   userId,
+    //   ip: req.ip,
+    //   url: req.url,
+    //   method: req.method
+    // });
 
     res.status(429).json({
       error: 'Too many requests from this user, please try again later.',
@@ -145,12 +145,12 @@ const burstLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   handler: (req, res) => {
-    logger.warn({
-      message: 'Rate limit exceeded - Burst',
-      ip: req.ip,
-      url: req.url,
-      method: req.method
-    });
+    // logger.warn({
+    //   message: 'Rate limit exceeded - Burst',
+    //   ip: req.ip,
+    //   url: req.url,
+    //   method: req.method
+    // });
 
     res.status(429).json({
       error: 'Too many requests in a short time, please slow down.',
@@ -170,12 +170,12 @@ const apiLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   handler: (req, res) => {
-    logger.warn({
-      message: 'Rate limit exceeded - API',
-      ip: req.ip,
-      url: req.url,
-      method: req.method
-    });
+    // logger.warn({
+    //   message: 'Rate limit exceeded - API',
+    //   ip: req.ip,
+    //   url: req.url,
+    //   method: req.method
+    // });
 
     res.status(429).json({
       error: 'API rate limit exceeded, please try again later.',
@@ -195,12 +195,12 @@ const authLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   handler: (req, res) => {
-    logger.warn({
-      message: 'Rate limit exceeded - Authentication',
-      ip: req.ip,
-      url: req.url,
-      method: req.method
-    });
+    // logger.warn({
+    //   message: 'Rate limit exceeded - Authentication',
+    //   ip: req.ip,
+    //   url: req.url,
+    //   method: req.method
+    // });
 
     res.status(429).json({
       error: 'Too many authentication attempts, please try again later.',

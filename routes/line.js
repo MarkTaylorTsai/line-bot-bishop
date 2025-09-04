@@ -6,7 +6,7 @@ const { sendMessage } = require('../services/lineService');
 const { parseReminderCommand } = require('../utils/commandParser');
 const { lineWebhookLimiter, userSpecificLimiter, burstLimiter } = require('../middleware/rateLimit');
 const { validateLineEvent, validateCommand, sanitizeInput } = require('../middleware/validation');
-const { logger, logLineEvent, logError } = require('../services/loggerService');
+// const { logger, logLineEvent, logError } = require('../services/loggerService');
 
 const router = express.Router();
 
@@ -22,11 +22,11 @@ const client = new line.Client(config);
 const verifySignature = (req, res, next) => {
   const signature = req.headers['x-line-signature'];
   if (!signature) {
-    logger.warn({
-      message: 'LINE signature missing',
-      ip: req.ip,
-      url: req.url
-    });
+    // logger.warn({
+    //   message: 'LINE signature missing',
+    //   ip: req.ip,
+    //   url: req.url
+    // });
     return res.status(401).json({ error: 'No signature provided' });
   }
 
@@ -37,17 +37,17 @@ const verifySignature = (req, res, next) => {
       .digest('base64');
 
     if (hash !== signature) {
-      logger.warn({
-        message: 'Invalid LINE signature',
-        ip: req.ip,
-        url: req.url,
-        providedSignature: signature
-      });
+      // logger.warn({
+      //   message: 'Invalid LINE signature',
+      //   ip: req.ip,
+      //   url: req.url,
+      //   providedSignature: signature
+      // });
       return res.status(401).json({ error: 'Invalid signature' });
     }
     next();
   } catch (error) {
-    logError(error, req);
+    // logError(error, req);
     return res.status(401).json({ error: 'Signature verification failed' });
   }
 };
@@ -70,11 +70,11 @@ router.post('/',
     try {
       const { events } = req.body;
 
-      logger.info({
-        message: 'LINE webhook received',
-        eventCount: events.length,
-        ip: req.ip
-      });
+      // logger.info({
+      //   message: 'LINE webhook received',
+      //   eventCount: events.length,
+      //   ip: req.ip
+      // });
 
       for (const event of events) {
         if (event.type !== 'message' || event.message.type !== 'text') {
@@ -84,15 +84,15 @@ router.post('/',
         const { userId } = event.source;
         const messageText = event.message.text;
 
-        logLineEvent('message_received', userId, 'text');
+        // logLineEvent('message_received', userId, 'text');
 
         // Check authorization
         if (!isAuthorized(userId)) {
-          logger.warn({
-            message: 'Unauthorized user attempt',
-            userId,
-            ip: req.ip
-          });
+          // logger.warn({
+          //   message: 'Unauthorized user attempt',
+          //   userId,
+          //   ip: req.ip
+          // });
           await sendMessage(userId, '❌ Sorry, you are not authorized to use this bot.');
           continue;
         }
@@ -113,14 +113,14 @@ router.post('/',
             await handleUnknownCommand(userId);
           }
         } catch (commandError) {
-          logError(commandError, req);
+          // logError(commandError, req);
           await sendMessage(userId, '❌ An error occurred while processing your command. Please try again.');
         }
       }
 
       res.status(200).json({ status: 'OK' });
     } catch (error) {
-      logError(error, req);
+      // logError(error, req);
       res.status(500).json({ error: 'Internal server error' });
     }
   }
@@ -155,9 +155,9 @@ Example: \`/update 123 2024-01-16 15:00 Updated interview time\`
 **Time Format:** HH:MM (24-hour)`;
 
     await sendMessage(userId, helpMessage);
-    logLineEvent('help_command', userId, 'text');
+    // logLineEvent('help_command', userId, 'text');
   } catch (error) {
-    logError(error);
+    // logError(error);
     throw error;
   }
 }
@@ -180,9 +180,9 @@ async function handleAddReminder (userId, messageText) {
 
     await sendMessage(userId, `✅ Reminder created successfully!\n\n📅 **Date:** ${reminderData.date}\n⏰ **Time:** ${reminderData.time}\n📝 **Message:** ${reminderData.message}\n🆔 **ID:** ${reminder.id}`);
 
-    logLineEvent('reminder_created', userId, 'text', reminder.id);
+    // logLineEvent('reminder_created', userId, 'text', reminder.id);
   } catch (error) {
-    logError(error);
+    // logError(error);
     await sendMessage(userId, '❌ Failed to create reminder. Please try again.');
     throw error;
   }
@@ -205,9 +205,9 @@ async function handleListReminders (userId) {
     });
 
     await sendMessage(userId, message);
-    logLineEvent('reminders_listed', userId, 'text');
+    // logLineEvent('reminders_listed', userId, 'text');
   } catch (error) {
-    logError(error);
+    // logError(error);
     await sendMessage(userId, '❌ Failed to fetch reminders. Please try again.');
     throw error;
   }
@@ -231,12 +231,12 @@ async function handleDeleteReminder (userId, messageText) {
 
     if (deleted) {
       await sendMessage(userId, `✅ Reminder with ID ${reminderId} has been deleted.`);
-      logLineEvent('reminder_deleted', userId, 'text', reminderId);
+      // logLineEvent('reminder_deleted', userId, 'text', reminderId);
     } else {
       await sendMessage(userId, '❌ Reminder not found or you don\'t have permission to delete it.');
     }
   } catch (error) {
-    logError(error);
+    // logError(error);
     await sendMessage(userId, '❌ Failed to delete reminder. Please try again.');
     throw error;
   }
@@ -270,12 +270,12 @@ async function handleUpdateReminder (userId, messageText) {
 
     if (updated) {
       await sendMessage(userId, `✅ Reminder updated successfully!\n\n📅 **New Date:** ${reminderData.date}\n⏰ **New Time:** ${reminderData.time}\n📝 **New Message:** ${reminderData.message}`);
-      logLineEvent('reminder_updated', userId, 'text', reminderId);
+      // logLineEvent('reminder_updated', userId, 'text', reminderId);
     } else {
       await sendMessage(userId, '❌ Reminder not found or you don\'t have permission to update it.');
     }
   } catch (error) {
-    logError(error);
+    // logError(error);
     await sendMessage(userId, '❌ Failed to update reminder. Please try again.');
     throw error;
   }
@@ -284,9 +284,9 @@ async function handleUpdateReminder (userId, messageText) {
 async function handleUnknownCommand (userId) {
   try {
     await sendMessage(userId, '❓ Unknown command. Type `/help` to see available commands.');
-    logLineEvent('unknown_command', userId, 'text');
+    // logLineEvent('unknown_command', userId, 'text');
   } catch (error) {
-    logError(error);
+    // logError(error);
     throw error;
   }
 }

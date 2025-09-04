@@ -56,7 +56,7 @@ function parseReminderCommand (messageText) {
       reminderTime
     };
   } catch (error) {
-    console.error('Error parsing reminder command:', error);
+    // console.error('Error parsing reminder command:', error);
     return null;
   }
 }
@@ -130,7 +130,7 @@ function parseNaturalDateTime (text) {
 
     return null;
   } catch (error) {
-    console.error('Error parsing natural date/time:', error);
+    // console.error('Error parsing natural date/time:', error);
     return null;
   }
 }
@@ -187,7 +187,7 @@ function formatReminderTime (reminderTime) {
     }
     return 'now';
   } catch (error) {
-    console.error('Error formatting reminder time:', error);
+    // console.error('Error formatting reminder time:', error);
     return 'unknown time';
   }
 }

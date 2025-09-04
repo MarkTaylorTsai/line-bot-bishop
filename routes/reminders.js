@@ -17,7 +17,7 @@ const checkApiKey = (req, res, next) => {
 // Manual trigger endpoint for sending due reminders
 router.post('/', checkApiKey, async (req, res) => {
   try {
-    console.log('Manual reminder check triggered');
+    // console.log('Manual reminder check triggered');
     const result = await sendDueReminders();
 
     res.status(200).json({
@@ -27,7 +27,7 @@ router.post('/', checkApiKey, async (req, res) => {
       timestamp: new Date().toISOString()
     });
   } catch (error) {
-    console.error('Error in manual reminder check:', error);
+    // console.error('Error in manual reminder check:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to process reminders',

@@ -1,12 +1,12 @@
 require('dotenv').config();
 const { sendDueReminders } = require('../services/reminderService');
-const { logger, logError } = require('../services/loggerService');
+// const { logger, logError } = require('../services/loggerService');
 
-module.exports = async function handler(req, res) {
+module.exports = async (req, res) => {
   // Set CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-API-Key');
 
   // Handle preflight requests
   if (req.method === 'OPTIONS') {
@@ -14,27 +14,30 @@ module.exports = async function handler(req, res) {
     return;
   }
 
-  // Only allow GET requests for cron jobs
-  if (req.method !== 'GET') {
-    res.status(405).json({ error: 'Method not allowed' });
-    return;
+  // Only allow POST requests
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
   }
 
   try {
-    logger.info('Starting reminder sending process...');
+    // logger.info('Starting reminder sending process...');
     const result = await sendDueReminders();
-    logger.info(`Reminder sending completed. Sent: ${result.remindersSent}`);
-    res.status(200).json({ 
+    // logger.info(`Reminder sending completed. Sent: ${result.remindersSent}`);
+
+    res.status(200).json({
       success: true,
+      message: 'Reminder check completed',
       remindersSent: result.remindersSent,
+      totalProcessed: result.totalProcessed,
+      errors: result.errors,
       timestamp: new Date().toISOString()
     });
   } catch (err) {
-    logError(err);
-    res.status(500).json({ 
-      error: 'Failed to send reminders',
-      message: err.message,
-      timestamp: new Date().toISOString()
+    // logError(err);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to process reminders',
+      message: err.message
     });
   }
 };

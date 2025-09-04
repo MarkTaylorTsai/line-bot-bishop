@@ -7,17 +7,17 @@ const { sendReminderMessage } = require('./lineService');
  */
 async function sendDueReminders () {
   try {
-    console.log('Starting to process due reminders...');
+    // console.log('Starting to process due reminders...');
 
     // Get all due reminders from database
     const dueReminders = await getDueReminders();
 
     if (dueReminders.length === 0) {
-      console.log('No due reminders found');
+      // console.log('No due reminders found');
       return { remindersSent: 0, success: true };
     }
 
-    console.log(`Found ${dueReminders.length} due reminders to process`);
+    // console.log(`Found ${dueReminders.length} due reminders to process`);
 
     let successCount = 0;
     let errorCount = 0;
@@ -33,7 +33,7 @@ async function sendDueReminders () {
         await markReminderAsSent(reminder.id);
 
         successCount++;
-        console.log(`✅ Reminder ${reminder.id} sent successfully to user ${reminder.user_id}`);
+        // console.log(`✅ Reminder ${reminder.id} sent successfully to user ${reminder.user_id}`);
       } catch (error) {
         errorCount++;
         const errorInfo = {
@@ -42,7 +42,7 @@ async function sendDueReminders () {
           error: error.message
         };
         errors.push(errorInfo);
-        console.error(`❌ Failed to send reminder ${reminder.id}:`, error);
+        // console.error(`❌ Failed to send reminder ${reminder.id}:`, error);
       }
     }
 
@@ -55,10 +55,10 @@ async function sendDueReminders () {
       timestamp: new Date().toISOString()
     };
 
-    console.log(`Reminder processing completed: ${successCount} sent, ${errorCount} failed`);
+    // console.log(`Reminder processing completed: ${successCount} sent, ${errorCount} failed`);
     return result;
   } catch (error) {
-    console.error('Error in sendDueReminders:', error);
+    // console.error('Error in sendDueReminders:', error);
     throw error;
   }
 }
@@ -70,7 +70,7 @@ async function sendDueReminders () {
  */
 async function sendSpecificReminder (reminderId) {
   try {
-    console.log(`Attempting to send specific reminder: ${reminderId}`);
+    // console.log(`Attempting to send specific reminder: ${reminderId}`);
 
     // Get the specific reminder
     const { supabase } = require('./supabaseService');
@@ -91,7 +91,7 @@ async function sendSpecificReminder (reminderId) {
     // Mark as sent
     await markReminderAsSent(reminder.id);
 
-    console.log(`✅ Specific reminder ${reminderId} sent successfully`);
+    // console.log(`✅ Specific reminder ${reminderId} sent successfully`);
 
     return {
       success: true,
@@ -101,7 +101,7 @@ async function sendSpecificReminder (reminderId) {
       timestamp: new Date().toISOString()
     };
   } catch (error) {
-    console.error(`Error sending specific reminder ${reminderId}:`, error);
+    // console.error(`Error sending specific reminder ${reminderId}:`, error);
     throw error;
   }
 }
@@ -113,7 +113,7 @@ async function sendSpecificReminder (reminderId) {
  */
 async function sendUserReminders (userId) {
   try {
-    console.log(`Processing reminders for user: ${userId}`);
+    // console.log(`Processing reminders for user: ${userId}`);
 
     // Get due reminders for specific user
     const { supabase } = require('./supabaseService');
@@ -130,11 +130,11 @@ async function sendUserReminders (userId) {
     }
 
     if (userReminders.length === 0) {
-      console.log(`No due reminders found for user ${userId}`);
+      // console.log(`No due reminders found for user ${userId}`);
       return { remindersSent: 0, success: true };
     }
 
-    console.log(`Found ${userReminders.length} due reminders for user ${userId}`);
+    // console.log(`Found ${userReminders.length} due reminders for user ${userId}`);
 
     let successCount = 0;
     let errorCount = 0;
@@ -144,10 +144,10 @@ async function sendUserReminders (userId) {
         await sendReminderMessage(reminder.user_id, reminder);
         await markReminderAsSent(reminder.id);
         successCount++;
-        console.log(`✅ User reminder ${reminder.id} sent successfully`);
+        // console.log(`✅ User reminder ${reminder.id} sent successfully`);
       } catch (error) {
         errorCount++;
-        console.error(`❌ Failed to send user reminder ${reminder.id}:`, error);
+        // console.error(`❌ Failed to send user reminder ${reminder.id}:`, error);
       }
     }
 
@@ -160,7 +160,7 @@ async function sendUserReminders (userId) {
       timestamp: new Date().toISOString()
     };
   } catch (error) {
-    console.error(`Error processing reminders for user ${userId}:`, error);
+    // console.error(`Error processing reminders for user ${userId}:`, error);
     throw error;
   }
 }
@@ -201,7 +201,7 @@ async function getReminderStats () {
       timestamp: new Date().toISOString()
     };
   } catch (error) {
-    console.error('Error getting reminder stats:', error);
+    // console.error('Error getting reminder stats:', error);
     throw error;
   }
 }

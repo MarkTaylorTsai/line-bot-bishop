@@ -10,10 +10,10 @@ if (supabaseUrl && supabaseKey && supabaseUrl !== 'your_supabase_project_url_her
   try {
     supabase = createClient(supabaseUrl, supabaseKey);
   } catch (error) {
-    console.error('Failed to initialize Supabase client:', error.message);
+    // console.error('Failed to initialize Supabase client:', error.message);
   }
 } else {
-  console.warn('Supabase configuration is missing or using placeholder values. Database operations will be mocked.');
+  // console.warn('Supabase configuration is missing or using placeholder values. Database operations will be mocked.');
 }
 
 /**
@@ -37,7 +37,7 @@ async function createReminder (reminderData) {
         status: reminderData.status || 'pending',
         created_at: new Date().toISOString()
       };
-      console.log('Mock reminder created:', mockReminder);
+      // console.log('Mock reminder created:', mockReminder);
       return mockReminder;
     }
 
@@ -56,14 +56,14 @@ async function createReminder (reminderData) {
       .single();
 
     if (error) {
-      console.error('Error creating reminder:', error);
+      // console.error('Error creating reminder:', error);
       throw error;
     }
 
-    console.log('Reminder created:', data);
+    // console.log('Reminder created:', data);
     return data;
   } catch (error) {
-    console.error('Error in createReminder:', error);
+    // console.error('Error in createReminder:', error);
     throw error;
   }
 }
@@ -78,7 +78,7 @@ async function getReminders (userId, status = null) {
   try {
     if (!supabase) {
       // Mock response for testing
-      console.log(`Mock: Found 0 reminders for user ${userId}`);
+      // console.log(`Mock: Found 0 reminders for user ${userId}`);
       return [];
     }
 
@@ -95,14 +95,14 @@ async function getReminders (userId, status = null) {
     const { data, error } = await query;
 
     if (error) {
-      console.error('Error fetching reminders:', error);
+      // console.error('Error fetching reminders:', error);
       throw error;
     }
 
-    console.log(`Found ${data.length} reminders for user ${userId}`);
+    // console.log(`Found ${data.length} reminders for user ${userId}`);
     return data || [];
   } catch (error) {
-    console.error('Error in getReminders:', error);
+    // console.error('Error in getReminders:', error);
     throw error;
   }
 }
@@ -115,7 +115,7 @@ async function getDueReminders () {
   try {
     if (!supabase) {
       // Mock response for testing
-      console.log('Mock: Found 0 due reminders');
+      // console.log('Mock: Found 0 due reminders');
       return [];
     }
 
@@ -129,14 +129,14 @@ async function getDueReminders () {
       .order('reminder_time', { ascending: true });
 
     if (error) {
-      console.error('Error fetching due reminders:', error);
+      // console.error('Error fetching due reminders:', error);
       throw error;
     }
 
-    console.log(`Found ${data.length} due reminders`);
+    // console.log(`Found ${data.length} due reminders`);
     return data || [];
   } catch (error) {
-    console.error('Error in getDueReminders:', error);
+    // console.error('Error in getDueReminders:', error);
     throw error;
   }
 }
@@ -159,7 +159,7 @@ async function updateReminder (reminderId, userId, updateData) {
       .single();
 
     if (fetchError || !existingReminder) {
-      console.error('Reminder not found or unauthorized:', fetchError);
+      // console.error('Reminder not found or unauthorized:', fetchError);
       return null;
     }
 
@@ -177,14 +177,14 @@ async function updateReminder (reminderId, userId, updateData) {
       .single();
 
     if (error) {
-      console.error('Error updating reminder:', error);
+      // console.error('Error updating reminder:', error);
       throw error;
     }
 
-    console.log('Reminder updated:', data);
+    // console.log('Reminder updated:', data);
     return data;
   } catch (error) {
-    console.error('Error in updateReminder:', error);
+    // console.error('Error in updateReminder:', error);
     throw error;
   }
 }
@@ -206,14 +206,14 @@ async function deleteReminder (reminderId, userId) {
       .single();
 
     if (error) {
-      console.error('Error deleting reminder:', error);
+      // console.error('Error deleting reminder:', error);
       return false;
     }
 
-    console.log('Reminder deleted:', data);
+    // console.log('Reminder deleted:', data);
     return true;
   } catch (error) {
-    console.error('Error in deleteReminder:', error);
+    // console.error('Error in deleteReminder:', error);
     return false;
   }
 }
@@ -227,7 +227,7 @@ async function markReminderAsSent (reminderId) {
   try {
     if (!supabase) {
       // Mock response for testing
-      console.log(`Mock: Reminder ${reminderId} marked as sent`);
+      // console.log(`Mock: Reminder ${reminderId} marked as sent`);
       return { id: reminderId, status: 'sent' };
     }
 
@@ -243,14 +243,14 @@ async function markReminderAsSent (reminderId) {
       .single();
 
     if (error) {
-      console.error('Error marking reminder as sent:', error);
+      // console.error('Error marking reminder as sent:', error);
       throw error;
     }
 
-    console.log('Reminder marked as sent:', data);
+    // console.log('Reminder marked as sent:', data);
     return data;
   } catch (error) {
-    console.error('Error in markReminderAsSent:', error);
+    // console.error('Error in markReminderAsSent:', error);
     throw error;
   }
 }
@@ -268,7 +268,7 @@ async function getReminderStats (userId) {
       .eq('user_id', userId);
 
     if (error) {
-      console.error('Error fetching reminder stats:', error);
+      // console.error('Error fetching reminder stats:', error);
       throw error;
     }
 
@@ -279,10 +279,10 @@ async function getReminderStats (userId) {
       cancelled: data.filter(r => r.status === 'cancelled').length
     };
 
-    console.log(`Stats for user ${userId}:`, stats);
+    // console.log(`Stats for user ${userId}:`, stats);
     return stats;
   } catch (error) {
-    console.error('Error in getReminderStats:', error);
+    // console.error('Error in getReminderStats:', error);
     throw error;
   }
 }
@@ -297,12 +297,12 @@ async function initializeDatabase () {
     const { error } = await supabase.rpc('create_reminders_table_if_not_exists');
 
     if (error) {
-      console.log('Table creation error (might already exist):', error.message);
+      // console.log('Table creation error (might already exist):', error.message);
     } else {
-      console.log('Database initialized successfully');
+      // console.log('Database initialized successfully');
     }
   } catch (error) {
-    console.error('Error initializing database:', error);
+    // console.error('Error initializing database:', error);
   }
 }
 

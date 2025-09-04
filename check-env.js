@@ -1,129 +1,130 @@
 require('dotenv').config();
 
-console.log('🔍 Environment Variables Check\n');
+// console.log('🔍 Environment Variables Check\n');
 
 // Required environment variables
 const requiredVars = [
+  'CHANNEL_ACCESS_TOKEN',
   'CHANNEL_SECRET',
-  'CHANNEL_ACCESS_TOKEN', 
   'SUPABASE_URL',
-  'SUPABASE_KEY',
-  'AUTHORIZED_USERS'
+  'SUPABASE_ANON_KEY'
 ];
 
 // Optional environment variables
 const optionalVars = [
   'NODE_ENV',
   'PORT',
-  'ALLOWED_ORIGINS',
+  'VERCEL',
+  'VERCEL_URL',
+  'VERCEL_ENV',
   'API_KEY',
-  'VERCEL'
+  'AUTHORIZED_USERS',
+  'ALLOWED_ORIGINS'
 ];
 
-console.log('📋 Required Variables:');
-let allRequiredPresent = true;
+// Check required variables
+let missingRequired = 0;
 
-requiredVars.forEach(varName => {
+// console.log('📋 Required Variables:');
+for (const varName of requiredVars) {
   const value = process.env[varName];
-  if (value && value.trim() !== '') {
-    // Mask sensitive values
-    const displayValue = varName.includes('SECRET') || varName.includes('TOKEN') || varName.includes('KEY') 
-      ? `${value.substring(0, 8)}...` 
-      : value;
-    console.log(`✅ ${varName}: ${displayValue}`);
+  const displayValue = value ? (varName.includes('SECRET') || varName.includes('KEY') ? '***HIDDEN***' : value) : 'MISSING';
+  
+  if (value) {
+    // console.log(`✅ ${varName}: ${displayValue}`);
   } else {
-    console.log(`❌ ${varName}: MISSING`);
-    allRequiredPresent = false;
+    missingRequired++;
+    // console.log(`❌ ${varName}: MISSING`);
   }
-});
+}
 
-console.log('\n📋 Optional Variables:');
-optionalVars.forEach(varName => {
+// Check optional variables
+// console.log('\n📋 Optional Variables:');
+for (const varName of optionalVars) {
   const value = process.env[varName];
-  if (value && value.trim() !== '') {
-    console.log(`✅ ${varName}: ${value}`);
+  if (value) {
+    // console.log(`✅ ${varName}: ${value}`);
   } else {
-    console.log(`⚠️  ${varName}: Not set (using defaults)`);
+    // console.log(`⚠️  ${varName}: Not set (using defaults)`);
   }
-});
+}
 
-console.log('\n🔧 Environment Configuration:');
-console.log(`NODE_ENV: ${process.env.NODE_ENV || 'development'}`);
-console.log(`PORT: ${process.env.PORT || '3000'}`);
-console.log(`VERCEL: ${process.env.VERCEL || 'false'}`);
+// Environment configuration
+// console.log('\n🔧 Environment Configuration:');
+// console.log(`NODE_ENV: ${process.env.NODE_ENV || 'development'}`);
+// console.log(`PORT: ${process.env.PORT || '3000'}`);
+// console.log(`VERCEL: ${process.env.VERCEL || 'false'}`);
 
 // Test service imports
-console.log('\n🧪 Testing Service Imports:');
+// console.log('\n🧪 Testing Service Imports:');
+
+// Test logger service
 try {
-  const { logger } = require('./services/loggerService');
-  console.log('✅ Logger service: OK');
+  // const { logger } = require('./services/loggerService');
+  // console.log('✅ Logger service: OK');
 } catch (error) {
-  console.log('❌ Logger service: FAILED -', error.message);
+  // console.log('❌ Logger service: FAILED -', error.message);
 }
 
+// Test Supabase service
 try {
-  const { createClient } = require('@supabase/supabase-js');
-  if (process.env.SUPABASE_URL && process.env.SUPABASE_KEY) {
-    const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
-    console.log('✅ Supabase client: OK');
+  const { supabase } = require('./services/supabaseService');
+  if (supabase) {
+    // console.log('✅ Supabase client: OK');
   } else {
-    console.log('⚠️  Supabase client: SKIPPED (missing credentials)');
+    // console.log('⚠️  Supabase client: SKIPPED (missing credentials)');
   }
 } catch (error) {
-  console.log('❌ Supabase client: FAILED -', error.message);
+  // console.log('❌ Supabase client: FAILED -', error.message);
 }
 
+// Test LINE service
 try {
-  const line = require('@line/bot-sdk');
-  if (process.env.CHANNEL_ACCESS_TOKEN && process.env.CHANNEL_SECRET) {
-    const config = {
-      channelAccessToken: process.env.CHANNEL_ACCESS_TOKEN,
-      channelSecret: process.env.CHANNEL_SECRET
-    };
-    const client = new line.Client(config);
-    console.log('✅ LINE client: OK');
+  const { client } = require('./services/lineService');
+  if (client) {
+    // console.log('✅ LINE client: OK');
   } else {
-    console.log('⚠️  LINE client: SKIPPED (missing credentials)');
+    // console.log('⚠️  LINE client: SKIPPED (missing credentials)');
   }
 } catch (error) {
-  console.log('❌ LINE client: FAILED -', error.message);
+  // console.log('❌ LINE client: FAILED -', error.message);
 }
 
-// Test crypto module (important for LINE signature verification)
+// Test crypto module
 try {
   const crypto = require('crypto');
-  const testHash = crypto.createHmac('SHA256', 'test').update('test').digest('base64');
-  console.log('✅ Crypto module: OK');
+  crypto.createHmac('SHA256', 'test').update('test').digest('base64');
+  // console.log('✅ Crypto module: OK');
 } catch (error) {
-  console.log('❌ Crypto module: FAILED -', error.message);
+  // console.log('❌ Crypto module: FAILED -', error.message);
 }
 
-// Test file system access (important for logging)
+// Test file system access
 try {
   const fs = require('fs');
   const path = require('path');
-  const testPath = path.join(process.cwd(), 'test-write-access');
-  fs.writeFileSync(testPath, 'test');
-  fs.unlinkSync(testPath);
-  console.log('✅ File system access: OK');
+  const testFile = path.join(__dirname, 'test-write-access.tmp');
+  fs.writeFileSync(testFile, 'test');
+  fs.unlinkSync(testFile);
+  // console.log('✅ File system access: OK');
 } catch (error) {
-  console.log('⚠️  File system access: LIMITED -', error.message);
-  console.log('   This is expected in serverless environments like Vercel');
+  // console.log('⚠️  File system access: LIMITED -', error.message);
+  // console.log('   This is expected in serverless environments like Vercel');
 }
 
 // Summary
-console.log('\n📊 Summary:');
-if (allRequiredPresent) {
-  console.log('✅ All required environment variables are set!');
-  console.log('🚀 Your application should work correctly.');
+// console.log('\n📊 Summary:');
+if (missingRequired === 0) {
+  // console.log('✅ All required environment variables are set!');
+  // console.log('🚀 Your application should work correctly.');
 } else {
-  console.log('❌ Some required environment variables are missing!');
-  console.log('⚠️  Please check your .env file and ensure all required variables are set.');
+  // console.log('❌ Some required environment variables are missing!');
+  // console.log('⚠️  Please check your .env file and ensure all required variables are set.');
 }
 
-console.log('\n💡 Tips:');
-console.log('- Make sure your .env file is in the root directory');
-console.log('- For Vercel deployment, set environment variables in Vercel dashboard');
-console.log('- Never commit .env files to version control');
-console.log('- In serverless environments, file system access is limited');
-console.log('- Use console logging instead of file logging in production');
+// console.log('\n💡 Tips:');
+// console.log('- Make sure your .env file is in the root directory');
+// console.log('- For Vercel deployment, set environment variables in Vercel dashboard');
+// console.log('- Never commit .env files to version control');
+// console.log('- In serverless environments, file system access is limited');
+// console.log('- Use console logging instead of file logging in production');

@@ -21,10 +21,10 @@ async function sendMessage (userId, message) {
       text: message
     });
 
-    console.log(`Message sent to ${userId}:`, response);
+    // console.log(`Message sent to ${userId}:`, response);
     return response;
   } catch (error) {
-    console.error(`Error sending message to ${userId}:`, error);
+    // console.error(`Error sending message to ${userId}:`, error);
     throw error;
   }
 }
@@ -42,10 +42,10 @@ async function sendMulticast (userIds, message) {
       text: message
     });
 
-    console.log(`Multicast message sent to ${userIds.length} users:`, response);
+    // console.log(`Multicast message sent to ${userIds.length} users:`, response);
     return response;
   } catch (error) {
-    console.error('Error sending multicast message:', error);
+    // console.error('Error sending multicast message:', error);
     throw error;
   }
 }
@@ -112,10 +112,10 @@ Please try again or contact support if the problem persists.`;
 async function getUserProfile (userId) {
   try {
     const profile = await client.getProfile(userId);
-    console.log(`User profile for ${userId}:`, profile);
+    // console.log(`User profile for ${userId}:`, profile);
     return profile;
   } catch (error) {
-    console.error(`Error getting profile for ${userId}:`, error);
+    // console.error(`Error getting profile for ${userId}:`, error);
     throw error;
   }
 }
@@ -126,7 +126,7 @@ async function getUserProfile (userId) {
  */
 function validateConfig () {
   if (!config.channelAccessToken || !config.channelSecret) {
-    console.error('LINE Bot configuration is incomplete');
+    // console.error('LINE Bot configuration is incomplete');
     return false;
   }
   return true;

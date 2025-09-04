@@ -72,59 +72,7 @@ const isServerless = () => {
 };
 
 // Define transports based on environment
-const getTransports = () => {
-  const transports = [
-    // Console transport (always available)
-    new winston.transports.Console({
-      format
-    })
-  ];
 
-  // Only add file transports in non-serverless environments
-  if (!isServerless()) {
-    try {
-      // Ensure logs directory exists before creating file transports
-      const fs = require('fs');
-      const logsDir = path.join(process.cwd(), 'logs');
-      
-      if (!fs.existsSync(logsDir)) {
-        fs.mkdirSync(logsDir, { recursive: true });
-      }
-      
-      // Error log file
-      transports.push(new winston.transports.File({
-        filename: path.join('logs', 'error.log'),
-        level: 'error',
-        format: fileFormat,
-        maxsize: 5242880, // 5MB
-        maxFiles: 5
-      }));
-
-      // Combined log file
-      transports.push(new winston.transports.File({
-        filename: path.join('logs', 'combined.log'),
-        format: fileFormat,
-        maxsize: 5242880, // 5MB
-        maxFiles: 5
-      }));
-      
-      console.log('File logging enabled - logs directory created');
-    } catch (error) {
-      console.warn('File logging not available in this environment:', error.message);
-      console.warn('Falling back to console logging only');
-    }
-  } else {
-    console.log('Serverless environment detected - using console logging only');
-    console.log('Environment variables:', {
-      VERCEL: process.env.VERCEL,
-      NODE_ENV: process.env.NODE_ENV,
-      VERCEL_ENV: process.env.VERCEL_ENV,
-      VERCEL_URL: process.env.VERCEL_URL
-    });
-  }
-
-  return transports;
-};
 
 // Create the logger
 const logger = winston.createLogger({

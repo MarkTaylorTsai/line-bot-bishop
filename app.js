@@ -338,8 +338,8 @@ async function handleAddCommand(text, userId, replyToken) {
     return;
   }
 
-  // Validate time format
-  if (!moment(parsed.time, 'HH:mm', true).isValid()) {
+  // Validate time format (parsed.time already includes :00 seconds)
+  if (!moment(parsed.time, 'HH:mm:ss', true).isValid()) {
     await client.replyMessage(replyToken, {
       type: 'text',
       text: '時間格式錯誤！請使用 HH:mm 格式。'

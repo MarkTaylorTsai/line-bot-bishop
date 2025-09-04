@@ -24,7 +24,7 @@ const BISHOP_LINE_USER_ID = process.env.BISHOP_LINE_USER_ID;
 const client = new line.Client(lineConfig);
 
 // Middleware
-app.use('/webhook', line.middleware(lineConfig));
+app.use('/callback', line.middleware(lineConfig));
 app.use(express.json());
 
 // Interview management functions
@@ -626,7 +626,7 @@ class ReminderManager {
 }
 
 // Webhook endpoint
-app.post('/webhook', async (req, res) => {
+app.post('/callback', async (req, res) => {
   const events = req.body.events;
 
   try {

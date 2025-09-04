@@ -93,7 +93,8 @@ Since Vercel is serverless, you need to set up an external cron service to trigg
 2. Create an account and add a new cron job
 3. Set the URL to: `https://your-vercel-domain.vercel.app/trigger-reminders`
 4. Set the schedule to every 10 minutes: `*/10 * * * *`
-5. (Optional) Add API key in headers: `x-api-key: your_cron_api_key`
+5. **Method**: GET (default) or POST - both work
+6. (Optional) Add API key in headers: `x-api-key: your_cron_api_key`
 
 #### Option 2: GitHub Actions (Free)
 
@@ -135,6 +136,30 @@ x-api-key: your_api_key_here
 # Or in query parameters
 ?apiKey=your_api_key_here
 ```
+
+#### Troubleshooting
+
+**404 Not Found Error:**
+
+- ✅ **Correct URL**: `https://your-vercel-domain.vercel.app/trigger-reminders`
+- ❌ **Wrong URL**: `https://your-vercel-domain.vercel.app/send-reminders`
+
+**Test the endpoint manually:**
+
+```bash
+# Test with curl
+curl -X GET https://your-vercel-domain.vercel.app/trigger-reminders
+
+# Or with API key
+curl -X GET -H "x-api-key: your_api_key" https://your-vercel-domain.vercel.app/trigger-reminders
+```
+
+**Check Vercel logs:**
+
+- Go to your Vercel dashboard
+- Click on your project
+- Go to "Functions" tab
+- Check the logs for any errors
 
 ## Usage
 

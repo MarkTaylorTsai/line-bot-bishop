@@ -678,7 +678,8 @@ app.get('/', (req, res) => {
 });
 
 // Manual reminder trigger endpoint (for external cron service)
-app.post('/trigger-reminders', async (req, res) => {
+// Accepts both GET and POST requests for flexibility
+app.all('/trigger-reminders', async (req, res) => {
   try {
     // Verify API key if provided (optional security)
     const apiKey = req.headers['x-api-key'] || req.query.apiKey;

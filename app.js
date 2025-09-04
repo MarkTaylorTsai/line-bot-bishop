@@ -655,22 +655,20 @@ class ReminderManager {
 }
 
 // Webhook endpoint
-app.post('/callback', async (req, res) => {
+app.post('/callback', (req, res) => {
   const events = req.body.events;
-
-  try {
-    await Promise.all(
-      events.map(async (event) => {
-        if (event.type === 'message' && event.message.type === 'text') {
-          await handleMessage(event);
-        }
-      })
-    );
-    res.json({ success: true });
-  } catch (error) {
-    console.error('Webhook error:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
+  
+  // Respond immediately to prevent Vercel timeout
+  res.json({ success: true });
+  
+  // Process messages asynchronously
+  events.forEach(event => {
+    if (event.type === 'message' && event.message.type === 'text') {
+      handleMessage(event).catch(err => {
+        console.error('Error handling message asynchronously:', err);
+      });
+    }
+  });
 });
 
 // Health check endpoint
@@ -692,28 +690,77 @@ app.all('/send-reminders', async (req, res) => {
     }
 
     console.log('🕐 Processing reminders via serverless endpoint...');
-    const result = await ReminderManager.processReminders();
     
-    if (result.success) {
-      res.json({ 
-        success: true, 
-        message: 'Reminders processed successfully',
-        totalSent: result.totalSent,
-        errors: result.errors,
-        timestamp: new Date().toISOString()
-      });
-    } else {
-      res.status(500).json({ 
+    // Get interviews needing reminders
+    const reminderResult = await InterviewManager.getInterviewsNeedingReminders();
+    
+    if (!reminderResult.success) {
+      return res.status(500).json({ 
         success: false, 
-        error: result.error,
+        error: reminderResult.error,
         timestamp: new Date().toISOString()
       });
     }
+
+    const { interviews24h, interviews3h } = reminderResult.data;
+    
+    // Respond immediately to prevent Vercel timeout
+    res.json({ 
+      success: true, 
+      message: 'Reminders processing started',
+      totalToProcess: interviews24h.length + interviews3h.length,
+      timestamp: new Date().toISOString()
+    });
+    
+    // Process reminders asynchronously in parallel
+    processRemindersAsync(interviews24h, interviews3h);
+    
   } catch (error) {
     console.error('Error triggering reminders:', error);
     res.status(500).json({ error: 'Failed to process reminders' });
   }
 });
+
+// Async function to process reminders without blocking the response
+async function processRemindersAsync(interviews24h, interviews3h) {
+  try {
+    console.log(`📋 Processing ${interviews24h.length} 24h reminders and ${interviews3h.length} 3h reminders`);
+    
+    // Process all reminders in parallel for better performance
+    const allReminders = [
+      ...interviews24h.map(interview => ({ interview, type: '24h' })),
+      ...interviews3h.map(interview => ({ interview, type: '3h' }))
+    ];
+    
+    const results = await Promise.allSettled(
+      allReminders.map(async ({ interview, type }) => {
+        try {
+          const reminderResult = await ReminderManager.sendReminderMessage(interview, type);
+          if (reminderResult.success) {
+            await InterviewManager.markReminderSent(interview.id, type);
+            console.log(`✅ Sent ${type} reminder for interview ${interview.id}`);
+            return { success: true, interviewId: interview.id, type };
+          } else {
+            console.error(`❌ Failed to send ${type} reminder for interview ${interview.id}:`, reminderResult.error);
+            return { success: false, interviewId: interview.id, type, error: reminderResult.error };
+          }
+        } catch (error) {
+          console.error(`❌ Error processing ${type} reminder for interview ${interview.id}:`, error);
+          return { success: false, interviewId: interview.id, type, error: error.message };
+        }
+      })
+    );
+    
+    // Count successful and failed reminders
+    const successful = results.filter(r => r.status === 'fulfilled' && r.value.success).length;
+    const failed = results.filter(r => r.status === 'rejected' || (r.status === 'fulfilled' && !r.value.success)).length;
+    
+    console.log(`📨 Reminders processing completed: ${successful} successful, ${failed} failed`);
+    
+  } catch (error) {
+    console.error('Error in async reminder processing:', error);
+  }
+}
 
 // Validate bishop configuration
 if (!BISHOP_LINE_USER_ID) {

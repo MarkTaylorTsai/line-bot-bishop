@@ -4,44 +4,15 @@
     {
       "src": "app.js",
       "use": "@vercel/node"
-    },
-    {
-      "src": "api/**/*.js",
-      "use": "@vercel/node"
     }
   ],
   "routes": [
-    {
-      "src": "/callback",
-      "dest": "/app.js"
-    },
-    {
-      "src": "/send-reminders",
-      "dest": "/api/send-reminders.js"
-    },
-    {
-      "src": "/health",
-      "dest": "/app.js"
-    },
-    {
-      "src": "/metrics",
-      "dest": "/app.js"
-    },
     {
       "src": "/(.*)",
       "dest": "/app.js"
     }
   ],
   "env": {
-    "NODE_ENV": "production",
-    "VERCEL": "1"
-  },
-  "functions": {
-    "app.js": {
-      "maxDuration": 30
-    },
-    "api/send-reminders.js": {
-      "maxDuration": 30
-    }
+    "NODE_ENV": "production"
   }
 }

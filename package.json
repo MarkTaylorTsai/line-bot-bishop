@@ -1,60 +1,34 @@
 {
-  "name": "line-bot-reminders",
+  "name": "line-interview-bot",
   "version": "1.0.0",
-  "description": "LINE Bot with reminder management using Node.js, Express, and Supabase",
+  "description": "LINE Bot for Interview Management",
   "main": "app.js",
   "scripts": {
     "start": "node app.js",
     "dev": "nodemon app.js",
-    "test": "jest",
-    "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage",
-    "lint": "eslint .",
-    "lint:fix": "eslint . --fix"
+    "deploy": "vercel --prod"
   },
   "dependencies": {
-    "express": "^4.18.2",
     "@line/bot-sdk": "^7.5.2",
     "@supabase/supabase-js": "^2.38.4",
     "dotenv": "^16.3.1",
-    "cors": "^2.8.5",
-    "helmet": "^7.1.0",
-    "node-cron": "^3.0.3",
-    "winston": "^3.11.0",
-    "express-rate-limit": "^7.1.5",
-    "joi": "^17.11.0",
-    "compression": "^1.7.4",
-    "express-validator": "^7.0.1"
+    "express": "^4.18.2",
+    "moment": "^2.29.4",
+    "node-cron": "^3.0.3"
   },
   "devDependencies": {
-    "nodemon": "^3.0.2",
-    "jest": "^29.7.0",
-    "supertest": "^6.3.3",
-    "eslint": "^8.56.0",
-    "eslint-config-standard": "^17.1.0",
-    "eslint-plugin-import": "^2.29.1",
-    "eslint-plugin-n": "^16.6.2",
-    "eslint-plugin-promise": "^6.1.1"
+    "nodemon": "^3.0.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   },
   "keywords": [
     "line-bot",
-    "reminders",
+    "interview",
+    "management",
     "supabase",
-    "express",
-    "nodejs"
+    "vercel"
   ],
   "author": "",
-  "license": "MIT",
-  "jest": {
-    "testEnvironment": "node",
-    "setupFilesAfterEnv": ["<rootDir>/tests/setup.js"],
-    "coverageDirectory": "coverage",
-    "collectCoverageFrom": [
-      "**/*.js",
-      "!**/node_modules/**",
-      "!**/coverage/**",
-      "!**/tests/**"
-    ],
-    "testTimeout": 10000
-  }
+  "license": "MIT"
 }

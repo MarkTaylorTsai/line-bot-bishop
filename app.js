@@ -677,42 +677,7 @@ app.get('/', (req, res) => {
   res.json({ status: 'LINE Interview Bot is running!' });
 });
 
-// Manual reminder trigger endpoint (for external cron service)
-// Accepts both GET and POST requests for flexibility
-app.all('/trigger-reminders', async (req, res) => {
-  try {
-    // Verify API key if provided (optional security)
-    const apiKey = req.headers['x-api-key'] || req.query.apiKey;
-    const expectedApiKey = process.env.CRON_API_KEY;
-    
-    if (expectedApiKey && apiKey !== expectedApiKey) {
-      console.warn('⚠️ Invalid API key provided for reminder trigger');
-      return res.status(401).json({ error: 'Unauthorized' });
-    }
-
-    console.log('🕐 Processing reminders via serverless endpoint...');
-    const result = await ReminderManager.processReminders();
-    
-    if (result.success) {
-      res.json({ 
-        success: true, 
-        message: 'Reminders processed successfully',
-        totalSent: result.totalSent,
-        errors: result.errors,
-        timestamp: new Date().toISOString()
-      });
-    } else {
-      res.status(500).json({ 
-        success: false, 
-        error: result.error,
-        timestamp: new Date().toISOString()
-      });
-    }
-  } catch (error) {
-    console.error('Error triggering reminders:', error);
-    res.status(500).json({ error: 'Failed to process reminders' });
-  }
-});
+// Manual reminder trigger endpoint moved to /api/trigger-reminders.js for Vercel serverless function
 
 // Validate bishop configuration
 if (!BISHOP_LINE_USER_ID) {

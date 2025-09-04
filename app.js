@@ -3,7 +3,6 @@ const express = require('express');
 const line = require('@line/bot-sdk');
 const { createClient } = require('@supabase/supabase-js');
 const moment = require('moment');
-const cron = require('node-cron');
 
 
 const app = express();
@@ -357,9 +356,11 @@ async function handleAddCommand(text, userId, replyToken) {
   );
 
   if (result.success) {
+    // Format time to show only HH:mm for display
+    const displayTime = parsed.time.substring(0, 5);
     await client.replyMessage(replyToken, {
       type: 'text',
-      text: `✅ 面談已成功加入！\n\n姓名: ${parsed.intervieweeName}\n日期: ${parsed.date}\n時間: ${parsed.time}\n理由: ${parsed.reason}\n\nID: ${result.data.id}`
+      text: `✅ 面談已成功加入！\n\n姓名: ${parsed.intervieweeName}\n日期: ${parsed.date}\n時間: ${displayTime}\n理由: ${parsed.reason}\n\nID: ${result.data.id}`
     });
   } else {
     await client.replyMessage(replyToken, {
@@ -532,7 +533,7 @@ async function sendHelpMessage(replyToken) {
 - 日期格式：YYYY-MM-DD
 - 時間格式：HH:mm
 - ID 可在面談清單中查看
-- 系統會自動發送24小時和3小時前的提醒通知給主教`;
+- 系統會自動發送24小時和3小時前的提醒通知`;
 
   await client.replyMessage(replyToken, {
     type: 'text',
@@ -545,17 +546,18 @@ class ReminderManager {
   // Send reminder message
   static async sendReminderMessage(interview, reminderType) {
     try {
-      const date = moment(interview.interview_date).format('YYYY-MM-DD');
-      const time = interview.interview_time ? interview.interview_time.substring(0, 5) : interview.interview_time;
-      const hoursText = reminderType === '24h' ? '24小時' : '3小時';
+      // Use bishop's LINE user ID for reminders
+      const targetUserId = BISHOP_LINE_USER_ID || interview.user_id;
       
-      // Send reminder to bishop only
-      const bishopUserId = BISHOP_LINE_USER_ID || interview.user_id;
-      if (!bishopUserId) {
+      if (!targetUserId) {
         console.error('No bishop user ID configured for reminders');
         return { success: false, error: 'No bishop user ID configured' };
       }
 
+      const date = moment(interview.interview_date).format('YYYY-MM-DD');
+      const time = interview.interview_time ? interview.interview_time.substring(0, 5) : interview.interview_time;
+      const hoursText = reminderType === '24h' ? '24小時' : '3小時';
+      
       const message = `🔔 面談提醒通知
 
 您有一個面談即將在${hoursText}後舉行：
@@ -567,13 +569,13 @@ class ReminderManager {
 
 請做好準備！`;
 
-      await client.pushMessage(bishopUserId, {
+      await client.pushMessage(targetUserId, {
         type: 'text',
         text: message
       });
 
       console.log(`📨 Sent ${reminderType} reminder to bishop for interview ${interview.id}`);
-      return { success: true, totalSent: 1 };
+      return { success: true };
     } catch (error) {
       console.error('Error sending reminder message:', error);
       return { success: false, error: error.message };
@@ -677,59 +679,42 @@ app.get('/', (req, res) => {
   res.json({ status: 'LINE Interview Bot is running!' });
 });
 
-// Manual reminder trigger endpoint for testing
-app.post('/api/trigger-reminders', async (req, res) => {
+// Manual reminder trigger endpoint (for external cron service)
+// Accepts both GET and POST requests for flexibility
+app.all('/trigger-reminders', async (req, res) => {
   try {
-    console.log('🕐 Manual reminder trigger requested...');
+    // Verify API key if provided (optional security)
+    const apiKey = req.headers['x-api-key'] || req.query.apiKey;
+    const expectedApiKey = process.env.CRON_API_KEY;
+    
+    if (expectedApiKey && apiKey !== expectedApiKey) {
+      console.warn('⚠️ Invalid API key provided for reminder trigger');
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    console.log('🕐 Processing reminders via serverless endpoint...');
     const result = await ReminderManager.processReminders();
     
     if (result.success) {
-      res.json({
-        success: true,
-        message: `Reminder check completed successfully. Sent ${result.totalSent} reminders.`,
+      res.json({ 
+        success: true, 
+        message: 'Reminders processed successfully',
         totalSent: result.totalSent,
-        errors: result.errors
+        errors: result.errors,
+        timestamp: new Date().toISOString()
       });
     } else {
-      res.status(500).json({
-        success: false,
-        error: result.error
+      res.status(500).json({ 
+        success: false, 
+        error: result.error,
+        timestamp: new Date().toISOString()
       });
     }
   } catch (error) {
-    console.error('Error in manual reminder trigger:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
+    console.error('Error triggering reminders:', error);
+    res.status(500).json({ error: 'Failed to process reminders' });
   }
 });
-
-// Cron job scheduler for reminders
-// Run every hour at minute 0 to check for interviews needing reminders
-const reminderCronJob = cron.schedule('0 * * * *', async () => {
-  console.log('🕐 Running scheduled reminder check...');
-  try {
-    const result = await ReminderManager.processReminders();
-    if (result.success) {
-      console.log(`✅ Reminder check completed successfully. Sent ${result.totalSent} reminders.`);
-      if (result.errors && result.errors.length > 0) {
-        console.warn('⚠️ Some reminders had errors:', result.errors);
-      }
-    } else {
-      console.error('❌ Reminder check failed:', result.error);
-    }
-  } catch (error) {
-    console.error('❌ Error in scheduled reminder check:', error);
-  }
-}, {
-  scheduled: false, // Don't start automatically
-  timezone: "Asia/Taipei" // Set timezone to Taiwan
-});
-
-// Start the cron job
-reminderCronJob.start();
-console.log('✅ Cron job started - reminders will be checked every hour');
 
 // Validate bishop configuration
 if (!BISHOP_LINE_USER_ID) {

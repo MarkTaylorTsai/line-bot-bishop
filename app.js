@@ -3,6 +3,7 @@ const express = require('express');
 const line = require('@line/bot-sdk');
 const { createClient } = require('@supabase/supabase-js');
 const moment = require('moment');
+const serverless = require('serverless-http');
 
 
 const app = express();
@@ -727,10 +728,4 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Internal server error' });
 });
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`LINE Interview Bot server is running on port ${PORT}`);
-});
-
-const serverless = require('serverless-http');
 module.exports = serverless(app);

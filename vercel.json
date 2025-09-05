@@ -12,6 +12,10 @@
       "dest": "/app.js"
     },
     {
+      "src": "/trigger-reminder",
+      "dest": "/app.js"
+    },
+    {
       "src": "/(.*)",
       "dest": "/app.js"
     }

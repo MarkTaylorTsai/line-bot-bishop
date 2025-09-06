@@ -259,6 +259,9 @@ class MessageParser {
 
 // Message handling
 async function handleMessage(event) {
+  // Log the full event payload to see LINE user ID and other details
+  console.log('📨 LINE Event Payload:', JSON.stringify(event, null, 2));
+  
   const { text } = event.message;
   const userId = event.source.userId;
 

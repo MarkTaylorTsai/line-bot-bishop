@@ -139,6 +139,9 @@ class InterviewManager {
 
       if (error) throw error;
 
+      // Diagnostic log: Did Supabase return interviews?
+      console.log('Fetched interviews:', allInterviews ? allInterviews.length : 0);
+
       const interviews24h = [];
       const interviews3h = [];
 
@@ -157,6 +160,9 @@ class InterviewManager {
           interviews3h.push(interview);
         }
       }
+
+      // Diagnostic log: Did any match the 24h condition?
+      console.log('24h matches:', interviews24h.length, '3h matches:', interviews3h.length);
 
       return {
         success: true,
@@ -415,7 +421,8 @@ async function handleUpdateCommand(text, userId, replyToken) {
     return;
   }
 
-  if (dbField === 'interview_time' && !moment.tz(valueToStore, 'HH:mm', true, 'Asia/Taipei').isValid()) {
+  if (dbField === 'interview_time' && 
+      !moment.tz(valueToStore, ['HH:mm', 'HH:mm:ss'], true, 'Asia/Taipei').isValid()) {
     await client.replyMessage(replyToken, {
       type: 'text',
       text: '時間格式錯誤！請使用 HH:mm 格式。'
@@ -535,10 +542,12 @@ class ReminderManager {
       
       const message = '🔔 面談提醒通知\n\n您有一個面談即將在' + hoursText + '後舉行：\n\n👤 面試者：' + interview.interviewee_name + '\n📅 日期：' + date + '\n⏰ 時間：' + time + '\n📝 理由：' + (interview.reason || '無') + '\n\n請做好準備！';
 
+      // Diagnostic log: Did LINE pushMessage run?
+      console.log('Pushing to user:', targetUserId);
       await client.pushMessage(targetUserId, {
         type: 'text',
         text: message
-      });
+      }).catch(err => console.error('LINE push failed', err));
 
       console.log(`📨 Sent ${reminderType} reminder to bishop for interview ${interview.id}`);
       return { success: true };

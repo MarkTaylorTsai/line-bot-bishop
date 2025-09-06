@@ -2,7 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const line = require('@line/bot-sdk');
 const { createClient } = require('@supabase/supabase-js');
-const moment = require('moment');
+const moment = require('moment-timezone');
 
 
 const app = express();
@@ -49,8 +49,8 @@ class InterviewManager {
 
       // Check if this interview needs immediate reminders (edge case handling)
       const interview = data[0];
-      const interviewDateTime = moment(`${interview.interview_date} ${interview.interview_time}`, 'YYYY-MM-DD HH:mm:ss');
-      const now = moment();
+      const interviewDateTime = moment.tz(`${interview.interview_date} ${interview.interview_time}`, 'YYYY-MM-DD HH:mm:ss', 'Asia/Taipei');
+      const now = moment.tz('Asia/Taipei');
       const diffHours = interviewDateTime.diff(now, 'hours', true);
 
       // If interview is less than 3 hours away, mark 24h reminder as sent
@@ -128,7 +128,7 @@ class InterviewManager {
   // Get interviews that need reminders
   static async getInterviewsNeedingReminders() {
     try {
-      const now = moment();
+      const now = moment.tz('Asia/Taipei');
       
       // Get all interviews that haven't sent reminders yet
       const { data: allInterviews, error } = await supabase
@@ -144,7 +144,7 @@ class InterviewManager {
 
       // Process each interview to check exact timing
       for (const interview of allInterviews || []) {
-        const interviewDateTime = moment(`${interview.interview_date} ${interview.interview_time}`, 'YYYY-MM-DD HH:mm:ss');
+        const interviewDateTime = moment.tz(`${interview.interview_date} ${interview.interview_time}`, 'YYYY-MM-DD HH:mm:ss', 'Asia/Taipei');
         const diffHours = interviewDateTime.diff(now, 'hours', true);
 
         // Check for 24-hour reminder (between 23.5 and 24.5 hours before)
@@ -302,7 +302,7 @@ async function handleListCommand(userId, replyToken) {
 
   let message = '📋 面談清單：\n\n';
   result.data.forEach((interview, index) => {
-    const date = moment(interview.interview_date).format('YYYY-MM-DD');
+    const date = moment.tz(interview.interview_date, 'Asia/Taipei').format('YYYY-MM-DD');
     // Format time to show only HH:mm for display
     const time = interview.interview_time ? interview.interview_time.substring(0, 5) : interview.interview_time;
     message += `${index + 1}. ID: ${interview.id}\n`;
@@ -330,7 +330,7 @@ async function handleAddCommand(text, userId, replyToken) {
   }
 
   // Validate date format
-  if (!moment(parsed.date, 'YYYY-MM-DD', true).isValid()) {
+  if (!moment.tz(parsed.date, 'YYYY-MM-DD', true, 'Asia/Taipei').isValid()) {
     await client.replyMessage(replyToken, {
       type: 'text',
       text: '日期格式錯誤！請使用 YYYY-MM-DD 格式。'
@@ -339,7 +339,7 @@ async function handleAddCommand(text, userId, replyToken) {
   }
 
   // Validate time format (parsed.time already includes :00 seconds)
-  if (!moment(parsed.time, 'HH:mm:ss', true).isValid()) {
+  if (!moment.tz(parsed.time, 'HH:mm:ss', true, 'Asia/Taipei').isValid()) {
     await client.replyMessage(replyToken, {
       type: 'text',
       text: '時間格式錯誤！請使用 HH:mm 格式。'
@@ -360,7 +360,7 @@ async function handleAddCommand(text, userId, replyToken) {
     const displayTime = parsed.time.substring(0, 5);
     await client.replyMessage(replyToken, {
       type: 'text',
-      text: `✅ 面談已成功加入！\n\n姓名: ${parsed.intervieweeName}\n日期: ${parsed.date}\n時間: ${displayTime}\n理由: ${parsed.reason}\n\nID: ${result.data.id}`
+      text: '✅ 面談已成功加入！\n\n姓名: ' + parsed.intervieweeName + '\n日期: ' + parsed.date + '\n時間: ' + displayTime + '\n理由: ' + parsed.reason + '\n\nID: ' + result.data.id
     });
   } else {
     await client.replyMessage(replyToken, {
@@ -407,7 +407,7 @@ async function handleUpdateCommand(text, userId, replyToken) {
   updates[dbField] = valueToStore;
 
   // Validate date/time if updating those fields
-  if (dbField === 'interview_date' && !moment(parsed.value, 'YYYY-MM-DD', true).isValid()) {
+  if (dbField === 'interview_date' && !moment.tz(parsed.value, 'YYYY-MM-DD', true, 'Asia/Taipei').isValid()) {
     await client.replyMessage(replyToken, {
       type: 'text',
       text: '日期格式錯誤！請使用 YYYY-MM-DD 格式。'
@@ -415,7 +415,7 @@ async function handleUpdateCommand(text, userId, replyToken) {
     return;
   }
 
-  if (dbField === 'interview_time' && !moment(valueToStore, 'HH:mm', true).isValid()) {
+  if (dbField === 'interview_time' && !moment.tz(valueToStore, 'HH:mm', true, 'Asia/Taipei').isValid()) {
     await client.replyMessage(replyToken, {
       type: 'text',
       text: '時間格式錯誤！請使用 HH:mm 格式。'
@@ -428,7 +428,7 @@ async function handleUpdateCommand(text, userId, replyToken) {
   if (result.success) {
     await client.replyMessage(replyToken, {
       type: 'text',
-      text: `✅ 面談已成功更新！\n\nID: ${parsed.id}\n${parsed.field}: ${parsed.value}`
+      text: '✅ 面談已成功更新！\n\nID: ' + parsed.id + '\n' + parsed.field + ': ' + parsed.value
     });
   } else {
     await client.replyMessage(replyToken, {
@@ -454,7 +454,7 @@ async function handleDeleteCommand(text, userId, replyToken) {
   if (result.success) {
     await client.replyMessage(replyToken, {
       type: 'text',
-      text: `✅ 面談 ID ${parsed.id} 已成功刪除！`
+      text: '✅ 面談 ID ' + parsed.id + ' 已成功刪除！'
     });
   } else {
     await client.replyMessage(replyToken, {
@@ -485,20 +485,20 @@ async function handleReminderStatusCommand(userId, replyToken) {
 
   let message = '📋 面談提醒狀態：\n\n';
   result.data.forEach((interview, index) => {
-    const date = moment(interview.interview_date).format('YYYY-MM-DD');
+    const date = moment.tz(interview.interview_date, 'Asia/Taipei').format('YYYY-MM-DD');
     const time = interview.interview_time ? interview.interview_time.substring(0, 5) : interview.interview_time;
-    const interviewDateTime = moment(`${date} ${time}`, 'YYYY-MM-DD HH:mm');
-    const now = moment();
+    const interviewDateTime = moment.tz(`${date} ${time}`, 'YYYY-MM-DD HH:mm', 'Asia/Taipei');
+    const now = moment.tz('Asia/Taipei');
     const hoursUntil = interviewDateTime.diff(now, 'hours', true);
     
     message += `${index + 1}. ID: ${interview.id}\n`;
-    message += `   姓名: ${interview.interviewee_name}\n`;
-    message += `   日期: ${date}\n`;
-    message += `   時間: ${time}\n`;
-    message += `   理由: ${interview.reason || '無'}\n`;
-    message += `   24小時提醒: ${interview.reminder_24h_sent ? '✅ 已發送' : '❌ 未發送'}\n`;
-    message += `   3小時提醒: ${interview.reminder_3h_sent ? '✅ 已發送' : '❌ 未發送'}\n`;
-    message += `   距離現在: ${hoursUntil > 0 ? `${hoursUntil.toFixed(1)}小時` : '已過期'}\n\n`;
+    message += '   姓名: ' + interview.interviewee_name + '\n';
+    message += '   日期: ' + date + '\n';
+    message += '   時間: ' + time + '\n';
+    message += '   理由: ' + (interview.reason || '無') + '\n';
+    message += '   24小時提醒: ' + (interview.reminder_24h_sent ? '✅ 已發送' : '❌ 未發送') + '\n';
+    message += '   3小時提醒: ' + (interview.reminder_3h_sent ? '✅ 已發送' : '❌ 未發送') + '\n';
+    message += '   距離現在: ' + (hoursUntil > 0 ? hoursUntil.toFixed(1) + '小時' : '已過期') + '\n\n';
   });
 
   await client.replyMessage(replyToken, {
@@ -508,32 +508,7 @@ async function handleReminderStatusCommand(userId, replyToken) {
 }
 
 async function sendHelpMessage(replyToken) {
-  const helpText = `主教團助理使用說明：
-
-📝 加入面談：
-加入 {人名} {日期} {時間} {理由}
-例如：加入 約翰 2024-01-15 14:30 聖殿推薦書面談
-
-📋 查看清單：
-面談清單
-
-✏️ 更新面談：
-更新 {ID} {欄位} {新值}
-例如：更新 1 姓名 彼得
-可用欄位：姓名、日期、時間、理由
-
-🗑️ 刪除面談：
-刪除 {ID}
-例如：刪除 1
-
-📋 查看提醒狀態：
-提醒狀態
-
-💡 注意事項：
-- 日期格式：YYYY-MM-DD
-- 時間格式：HH:mm
-- ID 可在面談清單中查看
-- 系統會自動發送24小時和3小時前的提醒通知`;
+  const helpText = '主教團助理使用說明：\n\n📝 加入面談：\n加入 {人名} {日期} {時間} {理由}\n例如：加入 約翰 2024-01-15 14:30 聖殿推薦書面談\n\n📋 查看清單：\n面談清單\n\n✏️ 更新面談：\n更新 {ID} {欄位} {新值}\n例如：更新 1 姓名 彼得\n可用欄位：姓名、日期、時間、理由\n\n🗑️ 刪除面談：\n刪除 {ID}\n例如：刪除 1\n\n📋 查看提醒狀態：\n提醒狀態\n\n💡 注意事項：\n- 日期格式：YYYY-MM-DD\n- 時間格式：HH:mm\n- ID 可在面談清單中查看\n- 系統會自動發送24小時和3小時前的提醒通知';
 
   await client.replyMessage(replyToken, {
     type: 'text',
@@ -554,20 +529,11 @@ class ReminderManager {
         return { success: false, error: 'No bishop user ID configured' };
       }
 
-      const date = moment(interview.interview_date).format('YYYY-MM-DD');
+      const date = moment.tz(interview.interview_date, 'Asia/Taipei').format('YYYY-MM-DD');
       const time = interview.interview_time ? interview.interview_time.substring(0, 5) : interview.interview_time;
       const hoursText = reminderType === '24h' ? '24小時' : '3小時';
       
-      const message = `🔔 面談提醒通知
-
-您有一個面談即將在${hoursText}後舉行：
-
-👤 面試者：${interview.interviewee_name}
-📅 日期：${date}
-⏰ 時間：${time}
-📝 理由：${interview.reason || '無'}
-
-請做好準備！`;
+      const message = '🔔 面談提醒通知\n\n您有一個面談即將在' + hoursText + '後舉行：\n\n👤 面試者：' + interview.interviewee_name + '\n📅 日期：' + date + '\n⏰ 時間：' + time + '\n📝 理由：' + (interview.reason || '無') + '\n\n請做好準備！';
 
       await client.pushMessage(targetUserId, {
         type: 'text',

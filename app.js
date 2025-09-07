@@ -24,7 +24,7 @@ const BISHOP_LINE_USER_ID = process.env.BISHOP_LINE_USER_ID;
 const client = new line.Client(lineConfig);
 
 // Middleware
-app.use(express.json());
+// Note: express.json() is not needed for LINE webhook as it needs raw body for signature validation
 
 // Interview management functions
 class InterviewManager {

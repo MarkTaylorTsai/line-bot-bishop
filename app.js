@@ -29,7 +29,7 @@ const client = new line.Client(lineConfig);
 // Interview management functions
 class InterviewManager {
   // Add new interview
-  static async addInterview(userId, intervieweeName, date, time, reason) {
+  static async addInterview(userId, intervieweeName, interviewerName, date, time, reason) {
     try {
       const { data, error } = await supabase
         .from('interviews')
@@ -37,6 +37,7 @@ class InterviewManager {
           {
             user_id: userId,
             interviewee_name: intervieweeName,
+            interviewer_name: interviewerName,
             interview_date: date,
             interview_time: time,
             reason: reason
@@ -202,30 +203,53 @@ class InterviewManager {
 
 // Field mapping for Chinese field names to database columns
 const fieldMap = {
-  '姓名': 'interviewee_name',
+  '面談對象': 'interviewee_name',
+  '面談者': 'interviewer_name',
   '日期': 'interview_date',
   '時間': 'interview_time',
   '理由': 'reason'
 };
 
+// Input validation and sanitization
+class InputValidator {
+  static sanitizeString(input) {
+    if (!input || typeof input !== 'string') return '';
+    return input.trim().replace(/[<>]/g, ''); // Basic XSS prevention
+  }
+  
+  static validateDate(dateString) {
+    return moment.tz(dateString, 'YYYY-MM-DD', true, 'Asia/Taipei').isValid();
+  }
+  
+  static validateTime(timeString) {
+    return moment.tz(timeString, ['HH:mm', 'HH:mm:ss'], true, 'Asia/Taipei').isValid();
+  }
+  
+  static validateName(name) {
+    const sanitized = this.sanitizeString(name);
+    return sanitized.length > 0 && sanitized.length <= 100;
+  }
+}
+
 // Message parsing functions
 class MessageParser {
-  // Parse "加入" command
+  // Parse "加入" command - Updated format: 加入 {面談對象} {面談者} {日期} {時間} {理由}
   static parseAddCommand(text) {
     // Allow both : and ： (full-width colon)
-    const regex = /加入\s+([^\s]+)\s+(\d{4}-\d{2}-\d{2})\s+(\d{2}[:：]\d{2})\s+(.+)/;
+    const regex = /加入\s+([^\s]+)\s+([^\s]+)\s+(\d{4}-\d{2}-\d{2})\s+(\d{2}[:：]\d{2})\s+(.+)/;
     const match = text.match(regex);
     
     if (!match) return null;
     
     // Normalize full-width colon to standard colon
-    const time = match[3].replace('：', ':');
+    const time = match[4].replace('：', ':');
     
     return {
       intervieweeName: match[1],
-      date: match[2],
+      interviewerName: match[2],
+      date: match[3],
       time: time + ':00', // Add seconds for proper TIME format
-      reason: match[4]
+      reason: match[5]
     };
   }
 
@@ -310,7 +334,8 @@ async function handleListCommand(userId, replyToken) {
     // Format time to show only HH:mm for display
     const time = interview.interview_time ? interview.interview_time.substring(0, 5) : interview.interview_time;
     message += `${index + 1}. ID: ${interview.id}\n`;
-    message += `   姓名: ${interview.interviewee_name}\n`;
+    message += `   面談對象: ${interview.interviewee_name}\n`;
+    message += `   面談者: ${interview.interviewer_name || '未指定'}\n`;
     message += `   日期: ${date}\n`;
     message += `   時間: ${time}\n`;
     message += `   理由: ${interview.reason || '無'}\n\n`;
@@ -328,13 +353,29 @@ async function handleAddCommand(text, userId, replyToken) {
   if (!parsed) {
     await client.replyMessage(replyToken, {
       type: 'text',
-      text: '格式錯誤！請使用：加入 {人名} {日期} {時間} {理由}\n例如：加入 張三 2024-01-15 14:30 技術面試'
+      text: '格式錯誤！請使用：加入 {面談對象} {面談者} {日期} {時間} {理由}\n例如：加入 約翰 陳佑庭 2024-01-15 14:30 聖殿推薦書面談'
     });
     return;
   }
 
-  // Validate date format
-  if (!moment.tz(parsed.date, 'YYYY-MM-DD', true, 'Asia/Taipei').isValid()) {
+  // Validate and sanitize inputs
+  if (!InputValidator.validateName(parsed.intervieweeName)) {
+    await client.replyMessage(replyToken, {
+      type: 'text',
+      text: '面談對象姓名無效！請輸入有效的姓名。'
+    });
+    return;
+  }
+
+  if (!InputValidator.validateName(parsed.interviewerName)) {
+    await client.replyMessage(replyToken, {
+      type: 'text',
+      text: '面談者姓名無效！請輸入有效的姓名。'
+    });
+    return;
+  }
+
+  if (!InputValidator.validateDate(parsed.date)) {
     await client.replyMessage(replyToken, {
       type: 'text',
       text: '日期格式錯誤！請使用 YYYY-MM-DD 格式。'
@@ -342,8 +383,7 @@ async function handleAddCommand(text, userId, replyToken) {
     return;
   }
 
-  // Validate time format (parsed.time already includes :00 seconds)
-  if (!moment.tz(parsed.time, 'HH:mm:ss', true, 'Asia/Taipei').isValid()) {
+  if (!InputValidator.validateTime(parsed.time)) {
     await client.replyMessage(replyToken, {
       type: 'text',
       text: '時間格式錯誤！請使用 HH:mm 格式。'
@@ -351,12 +391,22 @@ async function handleAddCommand(text, userId, replyToken) {
     return;
   }
 
+  // Sanitize inputs
+  const sanitizedData = {
+    intervieweeName: InputValidator.sanitizeString(parsed.intervieweeName),
+    interviewerName: InputValidator.sanitizeString(parsed.interviewerName),
+    date: parsed.date,
+    time: parsed.time,
+    reason: InputValidator.sanitizeString(parsed.reason)
+  };
+
   const result = await InterviewManager.addInterview(
     userId,
-    parsed.intervieweeName,
-    parsed.date,
-    parsed.time,
-    parsed.reason
+    sanitizedData.intervieweeName,
+    sanitizedData.interviewerName,
+    sanitizedData.date,
+    sanitizedData.time,
+    sanitizedData.reason
   );
 
   if (result.success) {
@@ -364,7 +414,7 @@ async function handleAddCommand(text, userId, replyToken) {
     const displayTime = parsed.time.substring(0, 5);
     await client.replyMessage(replyToken, {
       type: 'text',
-      text: '✅ 面談已成功加入！\n\n姓名: ' + parsed.intervieweeName + '\n日期: ' + parsed.date + '\n時間: ' + displayTime + '\n理由: ' + parsed.reason + '\n\nID: ' + result.data.id
+      text: '✅ 面談已成功加入！\n\n面談對象: ' + sanitizedData.intervieweeName + '\n面談者: ' + sanitizedData.interviewerName + '\n日期: ' + sanitizedData.date + '\n時間: ' + displayTime + '\n理由: ' + sanitizedData.reason + '\n\nID: ' + result.data.id
     });
   } else {
     await client.replyMessage(replyToken, {
@@ -380,7 +430,7 @@ async function handleUpdateCommand(text, userId, replyToken) {
   if (!parsed) {
     await client.replyMessage(replyToken, {
       type: 'text',
-      text: '格式錯誤！請使用：更新 {ID} {欄位} {新值}\n例如：更新 1 姓名 李四'
+      text: '格式錯誤！請使用：更新 {ID} {欄位} {新值}\n例如：更新 1 面談對象 約翰'
     });
     return;
   }
@@ -390,7 +440,7 @@ async function handleUpdateCommand(text, userId, replyToken) {
   if (!dbField) {
     await client.replyMessage(replyToken, {
       type: 'text',
-      text: '無效的欄位！可用欄位：姓名、日期、時間、理由'
+      text: '無效的欄位！可用欄位：面談對象、面談者、日期、時間、理由'
     });
     return;
   }
@@ -497,7 +547,8 @@ async function handleReminderStatusCommand(userId, replyToken) {
     const hoursUntil = interviewDateTime.diff(now, 'hours', true);
     
     message += `${index + 1}. ID: ${interview.id}\n`;
-    message += '   姓名: ' + interview.interviewee_name + '\n';
+    message += '   面談對象: ' + interview.interviewee_name + '\n';
+    message += '   面談者: ' + (interview.interviewer_name || '未指定') + '\n';
     message += '   日期: ' + date + '\n';
     message += '   時間: ' + time + '\n';
     message += '   理由: ' + (interview.reason || '無') + '\n';
@@ -513,7 +564,7 @@ async function handleReminderStatusCommand(userId, replyToken) {
 }
 
 async function sendHelpMessage(replyToken) {
-  const helpText = '主教團助理使用說明：\n\n📝 加入面談：\n加入 {人名} {日期} {時間} {理由}\n例如：加入 約翰 2024-01-15 14:30 聖殿推薦書面談\n\n📋 查看清單：\n面談清單\n\n✏️ 更新面談：\n更新 {ID} {欄位} {新值}\n例如：更新 1 姓名 彼得\n可用欄位：姓名、日期、時間、理由\n\n🗑️ 刪除面談：\n刪除 {ID}\n例如：刪除 1\n\n📋 查看提醒狀態：\n提醒狀態\n\n💡 注意事項：\n- 日期格式：YYYY-MM-DD\n- 時間格式：HH:mm\n- ID 可在面談清單中查看\n- 系統會自動發送24小時和3小時前的提醒通知';
+  const helpText = '主教團助理使用說明：\n\n📝 加入面談：\n加入 {面談對象} {面談者} {日期} {時間} {理由}\n例如：加入 約翰 陳佑庭 2024-01-15 14:30 聖殿推薦書面談\n\n📋 查看清單：\n面談清單\n\n✏️ 更新面談：\n更新 {ID} {欄位} {新值}\n例如：更新 1 面談對象 彼得\n可用欄位：面談對象、面談者、日期、時間、理由\n\n🗑️ 刪除面談：\n刪除 {ID}\n例如：刪除 1\n\n📋 查看提醒狀態：\n提醒狀態\n\n💡 注意事項：\n- 日期格式：YYYY-MM-DD\n- 時間格式：HH:mm\n- ID 可在面談清單中查看\n- 系統會自動發送24小時和3小時前的提醒通知';
 
   await client.replyMessage(replyToken, {
     type: 'text',
@@ -526,29 +577,94 @@ class ReminderManager {
   // Send reminder message
   static async sendReminderMessage(interview, reminderType) {
     try {
-      // Use bishop's LINE user ID for reminders
-      const targetUserId = BISHOP_LINE_USER_ID || interview.user_id;
-      
-      if (!targetUserId) {
-        console.error('No bishop user ID configured for reminders');
-        return { success: false, error: 'No bishop user ID configured' };
-      }
-
       const date = moment.tz(interview.interview_date, 'Asia/Taipei').format('YYYY-MM-DD');
       const time = interview.interview_time ? interview.interview_time.substring(0, 5) : interview.interview_time;
       const hoursText = reminderType === '24h' ? '24小時' : '3小時';
       
-      const message = '🔔 面談提醒通知\n\n您有一個面談即將在' + hoursText + '後舉行：\n\n👤 面試者：' + interview.interviewee_name + '\n📅 日期：' + date + '\n⏰ 時間：' + time + '\n📝 理由：' + (interview.reason || '無') + '\n\n請做好準備！';
+      const message = '🔔 面談提醒通知\n\n您有一個面談即將在' + hoursText + '後舉行：\n\n👤 面談對象：' + interview.interviewee_name + '\n👨‍💼 面談者：' + (interview.interviewer_name || '未指定') + '\n📅 日期：' + date + '\n⏰ 時間：' + time + '\n📝 理由：' + (interview.reason || '無') + '\n\n請做好準備！';
 
-      // Diagnostic log: Did LINE pushMessage run?
-      console.log('Pushing to user:', targetUserId);
-      await client.pushMessage(targetUserId, {
-        type: 'text',
-        text: message
-      }).catch(err => console.error('LINE push failed', err));
+      let sentCount = 0;
+      const errors = [];
 
-      console.log(`📨 Sent ${reminderType} reminder to bishop for interview ${interview.id}`);
-      return { success: true };
+      // Send to user ID (interview creator)
+      if (interview.user_id) {
+        try {
+          console.log(`🔍 Attempting to send ${reminderType} reminder to user: ${interview.user_id}`);
+          console.log(`🔍 Interview details: ID=${interview.id}, Name=${interview.interviewee_name}, Date=${interview.interview_date}, Time=${interview.interview_time}`);
+          await client.pushMessage(interview.user_id, {
+            type: 'text',
+            text: message
+          });
+          sentCount++;
+          console.log(`📨 Successfully sent ${reminderType} reminder to user ${interview.user_id} for interview ${interview.id}`);
+        } catch (error) {
+          console.error(`❌ Failed to send reminder to user ${interview.user_id}:`, error);
+          
+          // Log detailed LINE API error information
+          if (error.originalError && error.originalError.response) {
+            console.error('LINE API error details:', error.originalError.response.data);
+            console.error('LINE API status:', error.originalError.response.status);
+            console.error('LINE API headers:', error.originalError.response.headers);
+          }
+          
+          errors.push(`User ${interview.user_id}: ${error.message}`);
+        }
+      }
+
+      // Send to group ID (if available)
+      const groupId = process.env.GROUP_ID;
+      if (groupId) {
+        try {
+          console.log('Pushing to group:', groupId);
+          await client.pushMessage(groupId, {
+            type: 'text',
+            text: message
+          });
+          sentCount++;
+          console.log(`📨 Sent ${reminderType} reminder to group ${groupId} for interview ${interview.id}`);
+        } catch (error) {
+          console.error(`❌ Failed to send reminder to group ${groupId}:`, error);
+          
+          // Log detailed LINE API error information
+          if (error.originalError && error.originalError.response) {
+            console.error('LINE API error details:', error.originalError.response.data);
+            console.error('LINE API status:', error.originalError.response.status);
+            console.error('LINE API headers:', error.originalError.response.headers);
+          }
+          
+          errors.push(`Group ${groupId}: ${error.message}`);
+        }
+      }
+
+      // Send to bishop if configured
+      if (BISHOP_LINE_USER_ID && BISHOP_LINE_USER_ID !== interview.user_id) {
+        try {
+          console.log('Pushing to bishop:', BISHOP_LINE_USER_ID);
+          await client.pushMessage(BISHOP_LINE_USER_ID, {
+            type: 'text',
+            text: message
+          });
+          sentCount++;
+          console.log(`📨 Sent ${reminderType} reminder to bishop ${BISHOP_LINE_USER_ID} for interview ${interview.id}`);
+        } catch (error) {
+          console.error(`❌ Failed to send reminder to bishop ${BISHOP_LINE_USER_ID}:`, error);
+          
+          // Log detailed LINE API error information
+          if (error.originalError && error.originalError.response) {
+            console.error('LINE API error details:', error.originalError.response.data);
+            console.error('LINE API status:', error.originalError.response.status);
+            console.error('LINE API headers:', error.originalError.response.headers);
+          }
+          
+          errors.push(`Bishop ${BISHOP_LINE_USER_ID}: ${error.message}`);
+        }
+      }
+
+      return { 
+        success: sentCount > 0, 
+        sentCount,
+        errors: errors.length > 0 ? errors : undefined
+      };
     } catch (error) {
       console.error('Error sending reminder message:', error);
       return { success: false, error: error.message };
@@ -577,11 +693,15 @@ class ReminderManager {
       // Process 24-hour reminders
       for (const interview of interviews24h) {
         try {
+          console.log(`🔄 Processing 24h reminder for interview ${interview.id}: ${interview.interviewee_name} on ${interview.interview_date} at ${interview.interview_time}`);
           const reminderResult = await this.sendReminderMessage(interview, '24h');
           if (reminderResult.success) {
             await InterviewManager.markReminderSent(interview.id, '24h');
-            totalSent++;
-            console.log(`✅ Sent 24h reminder for interview ${interview.id}`);
+            totalSent += reminderResult.sentCount || 1;
+            console.log(`✅ Sent 24h reminder for interview ${interview.id} to ${reminderResult.sentCount} recipients`);
+            if (reminderResult.errors) {
+              errors.push(...reminderResult.errors);
+            }
           } else {
             console.error(`❌ Failed to send 24h reminder for interview ${interview.id}:`, reminderResult.error);
             errors.push(`24h reminder for interview ${interview.id}: ${reminderResult.error}`);
@@ -595,11 +715,15 @@ class ReminderManager {
       // Process 3-hour reminders
       for (const interview of interviews3h) {
         try {
+          console.log(`🔄 Processing 3h reminder for interview ${interview.id}: ${interview.interviewee_name} on ${interview.interview_date} at ${interview.interview_time}`);
           const reminderResult = await this.sendReminderMessage(interview, '3h');
           if (reminderResult.success) {
             await InterviewManager.markReminderSent(interview.id, '3h');
-            totalSent++;
-            console.log(`✅ Sent 3h reminder for interview ${interview.id}`);
+            totalSent += reminderResult.sentCount || 1;
+            console.log(`✅ Sent 3h reminder for interview ${interview.id} to ${reminderResult.sentCount} recipients`);
+            if (reminderResult.errors) {
+              errors.push(...reminderResult.errors);
+            }
           } else {
             console.error(`❌ Failed to send 3h reminder for interview ${interview.id}:`, reminderResult.error);
             errors.push(`3h reminder for interview ${interview.id}: ${reminderResult.error}`);
@@ -635,13 +759,26 @@ app.post('/callback', line.middleware(lineConfig), async (req, res) => {
 
     // Process each event
     await Promise.all(events.map(async (event) => {
+      // Log source information to help identify group/room IDs
+      console.log('Event Source:', event.source);
+      
+      if (event.source.type === 'group') {
+        console.log('Group ID:', event.source.groupId);
+      }
+      if (event.source.type === 'room') {
+        console.log('Room ID:', event.source.roomId);
+      }
+      if (event.source.type === 'user') {
+        console.log('User ID:', event.source.userId);
+      }
+
       if (event.type === 'message' && event.message.type === 'text') {
         const userMessage = event.message.text;
 
         if (userMessage === '呼叫面談助理') {
           const instructionMenu = {
             type: 'text',
-            text: '主教團助理使用說明：\n\n📝 加入面談：\n加入 {人名} {日期} {時間} {理由}\n例如：加入 約翰 2024-01-15 14:30 聖殿推薦書面談\n\n📋 查看清單：\n面談清單\n\n✏️ 更新面談：\n更新 {ID} {欄位} {新值}\n例如：更新 1 姓名 彼得\n可用欄位：姓名、日期、時間、理由\n\n🗑️ 刪除面談：\n刪除 {ID}\n例如：刪除 1\n\n📋 查看提醒狀態：\n提醒狀態\n\n💡 注意事項：\n- 日期格式：YYYY-MM-DD\n- 時間格式：HH:mm\n- ID 可在面談清單中查看\n- 系統會自動發送24小時和3小時前的提醒通知'
+            text: '主教團助理使用說明：\n\n📝 加入面談：\n加入 {面談對象} {面談者} {日期} {時間} {理由}\n例如：加入 約翰 陳佑庭 2024-01-15 14:30 聖殿推薦書面談\n\n📋 查看清單：\n面談清單\n\n✏️ 更新面談：\n更新 {ID} {欄位} {新值}\n例如：更新 1 面談對像 彼得\n可用欄位：面談對象、面談者、日期、時間、理由\n\n🗑️ 刪除面談：\n刪除 {ID}\n例如：刪除 1\n\n📋 查看提醒狀態：\n提醒狀態\n\n💡 注意事項：\n- 日期格式：YYYY-MM-DD\n- 時間格式：HH:mm\n- ID 可在面談清單中查看\n- 系統會自動發送24小時和3小時前的提醒通知'
           };
           return client.replyMessage(event.replyToken, instructionMenu);
         }
@@ -661,13 +798,13 @@ app.post('/callback', line.middleware(lineConfig), async (req, res) => {
         // Greet new user
         return client.replyMessage(event.replyToken, {
           type: 'text',
-          text: '👋 歡迎使用面談助理！輸入「呼叫面談助理」查看功能選單，或直接使用以下指令：\n\n• 加入 {人名} {日期} {時間} {理由}\n• 面談清單\n• 更新 {ID} {欄位} {新值}\n• 刪除 {ID}'
+          text: '👋 歡迎使用面談助理！輸入「呼叫面談助理」查看功能選單，或直接使用以下指令：\n\n• 加入 {面談對象} {面談者} {日期} {時間} {理由}\n• 面談清單\n• 更新 {ID} {欄位} {新值}\n• 刪除 {ID}'
         });
       } else if (event.type === 'join') {
         // Handle group join
         return client.replyMessage(event.replyToken, {
           type: 'text',
-          text: '👋 Hi, I am your Interview Assistant! Type "呼叫面談助理" to see the instruction menu.'
+          text: '👋 您好！我是面談助理！請輸入「呼叫面談助理」查看功能選單。'
         });
       } else {
         // Ignore other events
@@ -685,6 +822,87 @@ app.post('/callback', line.middleware(lineConfig), async (req, res) => {
 // Health check endpoint
 app.get('/', (req, res) => {
   res.json({ status: 'LINE Interview Bot is running!' });
+});
+
+// Debug endpoint to check interviews and reminder status
+app.get('/debug-reminders', async (req, res) => {
+  try {
+    const result = await InterviewManager.getInterviewsNeedingReminders();
+    
+    if (!result.success) {
+      return res.status(500).json({ error: result.error });
+    }
+
+    const { interviews24h, interviews3h } = result.data;
+    const now = moment.tz('Asia/Taipei');
+    
+    // Get all interviews for debugging
+    const allInterviewsResult = await InterviewManager.getInterviews('debug');
+    
+    res.json({
+      success: true,
+      currentTime: now.format('YYYY-MM-DD HH:mm:ss'),
+      timezone: 'Asia/Taipei',
+      interviewsNeeding24hReminders: interviews24h.length,
+      interviewsNeeding3hReminders: interviews3h.length,
+      interviews24h: interviews24h.map(i => ({
+        id: i.id,
+        name: i.interviewee_name,
+        date: i.interview_date,
+        time: i.interview_time,
+        user_id: i.user_id,
+        reminder_24h_sent: i.reminder_24h_sent,
+        reminder_3h_sent: i.reminder_3h_sent
+      })),
+      interviews3h: interviews3h.map(i => ({
+        id: i.id,
+        name: i.interviewee_name,
+        date: i.interview_date,
+        time: i.interview_time,
+        user_id: i.user_id,
+        reminder_24h_sent: i.reminder_24h_sent,
+        reminder_3h_sent: i.reminder_3h_sent
+      })),
+      totalInterviewsInDB: allInterviewsResult.success ? allInterviewsResult.data.length : 'Error fetching'
+    });
+  } catch (error) {
+    console.error('Debug endpoint error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Test endpoint to create a sample interview for testing reminders
+app.post('/create-test-interview', async (req, res) => {
+  try {
+    const now = moment.tz('Asia/Taipei');
+    
+    // Create an interview exactly 3 hours from now (for 3h reminder testing)
+    const testTime = now.clone().add(3, 'hours');
+    
+    const result = await InterviewManager.addInterview(
+      'test-user-123', // Test user ID
+      'Test Person',
+      'Test Interviewer',
+      testTime.format('YYYY-MM-DD'),
+      testTime.format('HH:mm:ss'),
+      'Testing reminder system'
+    );
+    
+    if (result.success) {
+      res.json({
+        success: true,
+        message: 'Test interview created successfully',
+        interview: result.data,
+        interviewTime: testTime.format('YYYY-MM-DD HH:mm:ss'),
+        hoursFromNow: 3
+      });
+    } else {
+      res.status(500).json({ error: result.error });
+    }
+  } catch (error) {
+    console.error('Test interview creation error:', error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // Manual reminder trigger endpoint (for external cron service)
@@ -731,15 +949,40 @@ if (!BISHOP_LINE_USER_ID) {
   console.log('✅ Bishop LINE user ID configured for reminders');
 }
 
-// Error handling
+// Production-ready error handling
 app.use((err, req, res, next) => {
   console.error('Express error:', err);
-  res.status(500).json({ error: 'Internal server error' });
+  
+  // Log detailed error information for debugging
+  if (process.env.NODE_ENV === 'development') {
+    console.error('Error stack:', err.stack);
+  }
+  
+  // Don't expose internal errors in production
+  const errorMessage = process.env.NODE_ENV === 'production' 
+    ? 'Internal server error' 
+    : err.message;
+    
+  res.status(500).json({ 
+    error: errorMessage,
+    timestamp: new Date().toISOString()
+  });
 });
 
+// Production-ready server startup
 const PORT = process.env.PORT || 3000;
+const NODE_ENV = process.env.NODE_ENV || 'development';
+
 app.listen(PORT, () => {
-  console.log(`LINE Interview Bot server is running on port ${PORT}`);
+  console.log(`🚀 LINE Interview Bot server is running on port ${PORT}`);
+  console.log(`📊 Environment: ${NODE_ENV}`);
+  console.log(`⏰ Server started at: ${new Date().toISOString()}`);
+  
+  // Log configuration status
+  console.log(`🔧 Configuration Status:`);
+  console.log(`   - LINE Bot: ${lineConfig.channelAccessToken ? '✅ Configured' : '❌ Missing'}`);
+  console.log(`   - Supabase: ${supabaseUrl ? '✅ Configured' : '❌ Missing'}`);
+  console.log(`   - Bishop ID: ${BISHOP_LINE_USER_ID ? '✅ Configured' : '⚠️ Not set'}`);
 });
 
 module.exports = app;

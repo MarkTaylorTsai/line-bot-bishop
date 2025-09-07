@@ -641,7 +641,7 @@ app.post('/callback', line.middleware(lineConfig), async (req, res) => {
         if (userMessage === '呼叫面談助理') {
           const instructionMenu = {
             type: 'text',
-            text: '📌 Instruction Menu\n\n1️⃣ Add an interview\n2️⃣ View upcoming interviews\n3️⃣ Cancel an interview\n\n(Please select an option by typing the number)'
+            text: '主教團助理使用說明：\n\n📝 加入面談：\n加入 {人名} {日期} {時間} {理由}\n例如：加入 約翰 2024-01-15 14:30 聖殿推薦書面談\n\n📋 查看清單：\n面談清單\n\n✏️ 更新面談：\n更新 {ID} {欄位} {新值}\n例如：更新 1 姓名 彼得\n可用欄位：姓名、日期、時間、理由\n\n🗑️ 刪除面談：\n刪除 {ID}\n例如：刪除 1\n\n📋 查看提醒狀態：\n提醒狀態\n\n💡 注意事項：\n- 日期格式：YYYY-MM-DD\n- 時間格式：HH:mm\n- ID 可在面談清單中查看\n- 系統會自動發送24小時和3小時前的提醒通知'
           };
           return client.replyMessage(event.replyToken, instructionMenu);
         }

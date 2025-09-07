@@ -259,9 +259,6 @@ class MessageParser {
 
 // Message handling
 async function handleMessage(event) {
-  // Log the full event payload to see LINE user ID and other details
-  console.log('📨 LINE Event Payload:', JSON.stringify(event, null, 2));
-  
   const { text } = event.message;
   const userId = event.source.userId;
 
@@ -277,9 +274,8 @@ async function handleMessage(event) {
       await handleDeleteCommand(text, userId, event.replyToken);
     } else if (text === '提醒狀態') {
       await handleReminderStatusCommand(userId, event.replyToken);
-    } else {
-      await sendHelpMessage(event.replyToken);
     }
+    // Note: No else clause - unrecognized commands are handled in webhook
   } catch (error) {
     console.error('Error handling message:', error);
     await client.replyMessage(event.replyToken, {
@@ -634,22 +630,47 @@ class ReminderManager {
 }
 
 // Webhook endpoint
-app.post('/callback', async (req, res) => {
-  const events = req.body.events;
+app.post('/callback', line.middleware(lineConfig), (req, res) => {
+  Promise.all(req.body.events.map(async (event) => {
+    if (event.type === 'message' && event.message.type === 'text') {
+      const userMessage = event.message.text;
 
-  try {
-    await Promise.all(
-      events.map(async (event) => {
-        if (event.type === 'message' && event.message.type === 'text') {
-          await handleMessage(event);
-        }
-      })
-    );
-    res.json({ success: true });
-  } catch (error) {
-    console.error('Webhook error:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
+      if (userMessage === '呼叫面談助理') {
+        const instructionMenu = {
+          type: 'text',
+          text: '📌 Instruction Menu\n\n1️⃣ Add an interview\n2️⃣ View upcoming interviews\n3️⃣ Cancel an interview\n\n(Please select an option by typing the number)'
+        };
+        return client.replyMessage(event.replyToken, instructionMenu);
+      }
+
+      // Handle CRUD commands
+      if (userMessage === '面談清單' || 
+          userMessage.startsWith('加入') || 
+          userMessage.startsWith('更新') || 
+          userMessage.startsWith('刪除') || 
+          userMessage === '提醒狀態') {
+        return handleMessage(event);
+      }
+
+      // If the message is not recognized, do nothing
+      return Promise.resolve(null);
+    }
+
+    // Handle join event
+    if (event.type === 'join') {
+      return client.replyMessage(event.replyToken, {
+        type: 'text',
+        text: '👋 Hi, I am your Interview Assistant! Type "呼叫面談助理" to see the instruction menu.'
+      });
+    }
+
+    return Promise.resolve(null);
+  }))
+  .then(() => res.status(200).end())
+  .catch((err) => {
+    console.error(err);
+    res.status(500).end();
+  });
 });
 
 // Health check endpoint

@@ -580,6 +580,18 @@ class ReminderManager {
     return userId && typeof userId === 'string' && userId.startsWith('U') && userId.length === 33;
   }
 
+  // Validate LINE group ID format
+  static isValidLineGroupId(groupId) {
+    // LINE group IDs should start with 'C' and be 33 characters long
+    return groupId && typeof groupId === 'string' && groupId.startsWith('C') && groupId.length === 33;
+  }
+
+  // Validate LINE room ID format
+  static isValidLineRoomId(roomId) {
+    // LINE room IDs should start with 'R' and be 33 characters long
+    return roomId && typeof roomId === 'string' && roomId.startsWith('R') && roomId.length === 33;
+  }
+
   // Send reminder message
   static async sendReminderMessage(interview, reminderType) {
     try {
@@ -624,7 +636,7 @@ class ReminderManager {
 
       // Send to group ID (if available and valid)
       const groupId = process.env.GROUP_ID;
-      if (groupId && this.isValidLineUserId(groupId)) {
+      if (groupId && this.isValidLineGroupId(groupId)) {
         try {
           console.log('Pushing to group:', groupId);
           await client.pushMessage(groupId, {
@@ -889,7 +901,7 @@ app.get('/debug-reminders', async (req, res) => {
       },
       groupConfig: {
         group_id: process.env.GROUP_ID,
-        group_id_valid: ReminderManager.isValidLineUserId(process.env.GROUP_ID)
+        group_id_valid: ReminderManager.isValidLineGroupId(process.env.GROUP_ID)
       }
     });
   } catch (error) {

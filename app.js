@@ -574,6 +574,12 @@ async function sendHelpMessage(replyToken) {
 
 // Reminder notification functions
 class ReminderManager {
+  // Validate LINE user ID format
+  static isValidLineUserId(userId) {
+    // LINE user IDs should start with 'U' and be 33 characters long
+    return userId && typeof userId === 'string' && userId.startsWith('U') && userId.length === 33;
+  }
+
   // Send reminder message
   static async sendReminderMessage(interview, reminderType) {
     try {
@@ -586,11 +592,13 @@ class ReminderManager {
       let sentCount = 0;
       const errors = [];
 
-      // Send to user ID (interview creator)
-      if (interview.user_id) {
+      // Send to user ID (interview creator) - but only if it's a valid LINE user ID
+      if (interview.user_id && this.isValidLineUserId(interview.user_id)) {
         try {
           console.log(`🔍 Attempting to send ${reminderType} reminder to user: ${interview.user_id}`);
           console.log(`🔍 Interview details: ID=${interview.id}, Name=${interview.interviewee_name}, Date=${interview.interview_date}, Time=${interview.interview_time}`);
+          console.log(`🔍 Message content: ${message}`);
+          
           await client.pushMessage(interview.user_id, {
             type: 'text',
             text: message
@@ -609,11 +617,14 @@ class ReminderManager {
           
           errors.push(`User ${interview.user_id}: ${error.message}`);
         }
+      } else if (interview.user_id) {
+        console.warn(`⚠️ Skipping user ${interview.user_id} - not a valid LINE user ID format`);
+        errors.push(`User ${interview.user_id}: Invalid LINE user ID format`);
       }
 
-      // Send to group ID (if available)
+      // Send to group ID (if available and valid)
       const groupId = process.env.GROUP_ID;
-      if (groupId) {
+      if (groupId && this.isValidLineUserId(groupId)) {
         try {
           console.log('Pushing to group:', groupId);
           await client.pushMessage(groupId, {
@@ -634,10 +645,13 @@ class ReminderManager {
           
           errors.push(`Group ${groupId}: ${error.message}`);
         }
+      } else if (groupId) {
+        console.warn(`⚠️ Skipping group ${groupId} - not a valid LINE group ID format`);
+        errors.push(`Group ${groupId}: Invalid LINE group ID format`);
       }
 
-      // Send to bishop if configured
-      if (BISHOP_LINE_USER_ID && BISHOP_LINE_USER_ID !== interview.user_id) {
+      // Send to bishop if configured and valid
+      if (BISHOP_LINE_USER_ID && BISHOP_LINE_USER_ID !== interview.user_id && this.isValidLineUserId(BISHOP_LINE_USER_ID)) {
         try {
           console.log('Pushing to bishop:', BISHOP_LINE_USER_ID);
           await client.pushMessage(BISHOP_LINE_USER_ID, {
@@ -658,6 +672,9 @@ class ReminderManager {
           
           errors.push(`Bishop ${BISHOP_LINE_USER_ID}: ${error.message}`);
         }
+      } else if (BISHOP_LINE_USER_ID && !this.isValidLineUserId(BISHOP_LINE_USER_ID)) {
+        console.warn(`⚠️ Skipping bishop ${BISHOP_LINE_USER_ID} - not a valid LINE user ID format`);
+        errors.push(`Bishop ${BISHOP_LINE_USER_ID}: Invalid LINE user ID format`);
       }
 
       return { 
@@ -851,6 +868,7 @@ app.get('/debug-reminders', async (req, res) => {
         date: i.interview_date,
         time: i.interview_time,
         user_id: i.user_id,
+        user_id_valid: ReminderManager.isValidLineUserId(i.user_id),
         reminder_24h_sent: i.reminder_24h_sent,
         reminder_3h_sent: i.reminder_3h_sent
       })),
@@ -860,10 +878,19 @@ app.get('/debug-reminders', async (req, res) => {
         date: i.interview_date,
         time: i.interview_time,
         user_id: i.user_id,
+        user_id_valid: ReminderManager.isValidLineUserId(i.user_id),
         reminder_24h_sent: i.reminder_24h_sent,
         reminder_3h_sent: i.reminder_3h_sent
       })),
-      totalInterviewsInDB: allInterviewsResult.success ? allInterviewsResult.data.length : 'Error fetching'
+      totalInterviewsInDB: allInterviewsResult.success ? allInterviewsResult.data.length : 'Error fetching',
+      bishopConfig: {
+        bishop_user_id: BISHOP_LINE_USER_ID,
+        bishop_user_id_valid: ReminderManager.isValidLineUserId(BISHOP_LINE_USER_ID)
+      },
+      groupConfig: {
+        group_id: process.env.GROUP_ID,
+        group_id_valid: ReminderManager.isValidLineUserId(process.env.GROUP_ID)
+      }
     });
   } catch (error) {
     console.error('Debug endpoint error:', error);

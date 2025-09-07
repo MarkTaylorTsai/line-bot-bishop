@@ -24,7 +24,6 @@ const BISHOP_LINE_USER_ID = process.env.BISHOP_LINE_USER_ID;
 const client = new line.Client(lineConfig);
 
 // Middleware
-app.use('/callback', line.middleware(lineConfig));
 app.use(express.json());
 
 // Interview management functions
@@ -630,47 +629,57 @@ class ReminderManager {
 }
 
 // Webhook endpoint
-app.post('/callback', line.middleware(lineConfig), (req, res) => {
-  Promise.all(req.body.events.map(async (event) => {
-    if (event.type === 'message' && event.message.type === 'text') {
-      const userMessage = event.message.text;
+app.post('/callback', line.middleware(lineConfig), async (req, res) => {
+  try {
+    const events = req.body.events;
 
-      if (userMessage === '呼叫面談助理') {
-        const instructionMenu = {
+    // Process each event
+    await Promise.all(events.map(async (event) => {
+      if (event.type === 'message' && event.message.type === 'text') {
+        const userMessage = event.message.text;
+
+        if (userMessage === '呼叫面談助理') {
+          const instructionMenu = {
+            type: 'text',
+            text: '📌 Instruction Menu\n\n1️⃣ Add an interview\n2️⃣ View upcoming interviews\n3️⃣ Cancel an interview\n\n(Please select an option by typing the number)'
+          };
+          return client.replyMessage(event.replyToken, instructionMenu);
+        }
+
+        // Handle CRUD commands
+        if (userMessage === '面談清單' || 
+            userMessage.startsWith('加入') || 
+            userMessage.startsWith('更新') || 
+            userMessage.startsWith('刪除') || 
+            userMessage === '提醒狀態') {
+          return handleMessage(event);
+        }
+
+        // If the message is not recognized, do nothing
+        return Promise.resolve(null);
+      } else if (event.type === 'follow') {
+        // Greet new user
+        return client.replyMessage(event.replyToken, {
           type: 'text',
-          text: '📌 Instruction Menu\n\n1️⃣ Add an interview\n2️⃣ View upcoming interviews\n3️⃣ Cancel an interview\n\n(Please select an option by typing the number)'
-        };
-        return client.replyMessage(event.replyToken, instructionMenu);
+          text: '👋 歡迎使用面談助理！輸入「呼叫面談助理」查看功能選單，或直接使用以下指令：\n\n• 加入 {人名} {日期} {時間} {理由}\n• 面談清單\n• 更新 {ID} {欄位} {新值}\n• 刪除 {ID}'
+        });
+      } else if (event.type === 'join') {
+        // Handle group join
+        return client.replyMessage(event.replyToken, {
+          type: 'text',
+          text: '👋 Hi, I am your Interview Assistant! Type "呼叫面談助理" to see the instruction menu.'
+        });
+      } else {
+        // Ignore other events
+        return Promise.resolve(null);
       }
+    }));
 
-      // Handle CRUD commands
-      if (userMessage === '面談清單' || 
-          userMessage.startsWith('加入') || 
-          userMessage.startsWith('更新') || 
-          userMessage.startsWith('刪除') || 
-          userMessage === '提醒狀態') {
-        return handleMessage(event);
-      }
-
-      // If the message is not recognized, do nothing
-      return Promise.resolve(null);
-    }
-
-    // Handle join event
-    if (event.type === 'join') {
-      return client.replyMessage(event.replyToken, {
-        type: 'text',
-        text: '👋 Hi, I am your Interview Assistant! Type "呼叫面談助理" to see the instruction menu.'
-      });
-    }
-
-    return Promise.resolve(null);
-  }))
-  .then(() => res.status(200).end())
-  .catch((err) => {
-    console.error(err);
+    res.status(200).end();
+  } catch (err) {
+    console.error('Webhook error:', err);
     res.status(500).end();
-  });
+  }
 });
 
 // Health check endpoint
